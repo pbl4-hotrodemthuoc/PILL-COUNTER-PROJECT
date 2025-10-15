@@ -11,7 +11,7 @@ OUTPUT_LABEL_DIR = 'dataset/labels'
     
 # Danh sách các lớp của bạn.
 # Mở một vài file .xml trong thư mục annotations để xem tên class là gì.
-# Dựa trên bộ dữ liệu này, tên class chỉ có một là "pill".
+
 FINAL_CLASS_NAME = 'pill'
 # Liệt kê tất cả các tên lớp có thể có trong dữ liệu gốc
 POSSIBLE_CLASS_NAMES = ['pill', 'tablets'] 
