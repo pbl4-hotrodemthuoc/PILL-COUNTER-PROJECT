@@ -1,0 +1,7 @@
+path: ./dataset 
+train: images/train
+val: images/val
+
+nc: 1 # Chúng ta chỉ có 1 lớp là "pill"
+
+names: ['pill'] # Tên của lớp đó
