@@ -6,5 +6,5 @@ test: ./dataset/test/images # Thêm cả bộ test để đánh giá sau này
 # Số lượng lớp đối tượng (lấy từ file gốc)
 nc: 1
 
-# Tên của lớp đối tượng. Ta thống nhất dùng 'pill' cho nhất quán với dự án.
-names: ['pill']
+# Tên của lớp đối tượng. Ta thống nhất dùng 'cap' cho nhất quán với dự án.
+names: ['cap']

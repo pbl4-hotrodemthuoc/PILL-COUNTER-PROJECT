@@ -9,7 +9,7 @@ def main():
     processor = AIProcessor()
 
     # 2. Chỉ định đường dẫn tới ảnh cần kiểm tra
-    image_path = os.path.join('device_app', 'test_images', '20241223103559_jpg.rf.10b3f2d0ae5f160fe21969691eeac3f9.jpg')
+    image_path = os.path.join('device_app', 'test_images', 'anhthuoc3.jpg')
 
     # 3. Kiểm tra xem file ảnh có tồn tại không
     if not os.path.exists(image_path):
