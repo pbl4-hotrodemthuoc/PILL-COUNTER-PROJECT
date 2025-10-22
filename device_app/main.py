@@ -1,37 +1,37 @@
-# device_app/main.py
-
 import cv2
-import os
 from ai_processor import AIProcessor
+from picamera2 import Picamera2
 
 def main():
-    # 1. Khởi tạo bộ xử lý AI
+    # 1. Khoi tao bo xu ly AI
     processor = AIProcessor()
 
-    # 2. Chỉ định đường dẫn tới ảnh cần kiểm tra
-    image_path = os.path.join('device_app', 'test_images', 'anhthuoc3.jpg')
+    # 2. Khoi tao Picamera2
+    picam2 = Picamera2()
+    picam2.preview_configuration.main.size = (640, 480)
+    picam2.preview_configuration.main.format = "BGR888"
+    picam2.configure("preview")
+    picam2.start()
 
-    # 3. Kiểm tra xem file ảnh có tồn tại không
-    if not os.path.exists(image_path):
-        print(f"Lỗi: Không tìm thấy ảnh tại '{image_path}'")
-        return
+    print("Camera da san sang. Nhan 'q' tren cua so video de thoat.")
 
-    # 4. Gọi hàm đếm thuốc và nhận kết quả
-    print(f"Đang xử lý ảnh: {image_path}...")
-    # Biến pill_count vẫn được trả về nhưng chúng ta không dùng đến nó ở đây nữa
-    pill_count, result_image = processor.count_pills_from_file(image_path)
-    
-    # 5. --- CÁC DÒNG PRINT KẾT QUẢ ĐÃ ĐƯỢC XÓA ---
+    # 3. Vong lap xu ly real-time
+    while True:
+        # Lay frame tu camera
+        frame = picam2.capture_array()
 
-    # 6. Hiển thị ảnh kết quả (đã có sẵn dòng tổng kết trên đó)
-    # hiển thị chữ kết quả màu đen
-    result_image = cv2.putText(result_image, f"Tong so: {pill_count}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-    result_image_bgr = cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR)
-    cv2.imshow("Ket qua dem thuoc", result_image_bgr)
-    
-    print("Một cửa sổ ảnh đã hiện lên. Nhấn phím bất kỳ trên cửa sổ đó để thoát.")
-    
-    cv2.waitKey(0)
+        # Xu ly frame bang AI
+        _, result_image = processor.process_frame(frame)
+
+        # Hien thi ket qua
+        cv2.imshow("Real-time Pill Counter (Nhan 'q' de thoat)", result_image)
+
+        # Thoat khi nhan 'q'
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    print("Dang dong chuong trinh...")
+    picam2.stop()
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
