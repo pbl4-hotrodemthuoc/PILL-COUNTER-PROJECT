@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+
+{% block title %}Bảng điều khiển{% endblock %}
+
+{% block content %}
+    <h1>Chào mừng đến với Bảng điều khiển, {{ user.username }}!</h1>
+    <p>Vai trò của bạn là: <strong>{{ user.role }}</strong></p>
+    
+    {% if user.role == 'admin' %}
+        <p>Bạn có quyền truy cập vào <a href="{{ url_for('main.admin_page') }}">Trang quản trị</a>.</p>
+    {% else %}
+        <p>Đây là trang dành cho người dùng thông thường.</p>
+    {% endif %}
+{% endblock %}
