@@ -1,6 +1,7 @@
 # File: server_app/main.py
 from flask import Blueprint, render_template, flash, redirect, url_for
 from flask_login import login_required, current_user
+from .models import db, TransactionLog, DrugType
 from functools import wraps
 
 main = Blueprint('main', __name__)
@@ -27,3 +28,14 @@ def dashboard():
 def admin_page():
     # Trang này chỉ admin mới vào được
     return render_template('admin.html')
+@main.route('/profile')
+@login_required
+def profile():
+    return render_template('profile.html', user=current_user)
+# ----> ĐẢM BẢO BẠN CÓ ĐOẠN CODE NÀY <----
+@main.route('/drugs')
+@login_required
+def drug_list():  # <--- Tên hàm phải là 'drug_list'
+    drugs = DrugType.query.order_by(DrugType.name.asc()).all()
+    return render_template('drugs.html', drugs=drugs, user=current_user)
+# --------------------------------------------

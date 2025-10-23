@@ -43,16 +43,36 @@ def create_app():
     # --- PHẦN MỚI: TẠO LỆNH 'flask init-db' ---
     @app.cli.command("init-db")
     def init_db_command():
-        """Xóa các bảng cũ và tạo các bảng mới, bao gồm tài khoản admin."""
-        db.drop_all()  # Xóa hết các bảng cũ (nếu có)
-        db.create_all()  # Tạo tất cả các bảng từ models.py
+        """Xóa các bảng cũ và tạo các bảng mới, bao gồm dữ liệu mẫu."""
+        db.drop_all()
+        db.create_all()
         
-        # Tạo tài khoản admin mẫu
-        admin_user = User(username='admin', role='admin')
+        # 1. Tạo tài khoản admin và user mẫu với đầy đủ thông tin
+        admin_user = User(
+            username='admin', 
+            role='admin',
+            full_name='Quản trị viên Hệ thống',
+            email='admin@pillcounter.com'
+        )
         admin_user.set_password('admin')
-        db.session.add(admin_user)
+
+        user_1 = User(
+            username='nhanvien1', 
+            role='user',
+            full_name='Nguyễn Văn A',
+            email='nhanvien1@pillcounter.com',
+            phone_number='0987654321'
+        )
+        user_1.set_password('123456')
+
+        db.session.add_all([admin_user, user_1])
         db.session.commit()
+        print("Đã tạo tài khoản admin và user mẫu.")
+
+        # ... (Phần tạo thuốc và log giữ nguyên) ...
+        # ...
         
-        print("Đã khởi tạo cơ sở dữ liệu và tạo tài khoản admin thành công.")
+        print("---")
+        print("Khởi tạo cơ sở dữ liệu hoàn tất!")
 
     return app

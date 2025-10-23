@@ -26,15 +26,29 @@ def login():
 @auth.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
+        # Lấy thêm dữ liệu từ form
+        email = request.form.get('email')
+        full_name = request.form.get('full_name')
         username = request.form.get('username')
         password = request.form.get('password')
 
-        user = User.query.filter_by(username=username).first()
-        if user:
+        # Kiểm tra xem username hoặc email đã tồn tại chưa
+        user_by_username = User.query.filter_by(username=username).first()
+        if user_by_username:
             flash('Tên đăng nhập đã tồn tại.', 'warning')
             return redirect(url_for('auth.signup'))
+        
+        user_by_email = User.query.filter_by(email=email).first()
+        if user_by_email:
+            flash('Địa chỉ email đã được sử dụng.', 'warning')
+            return redirect(url_for('auth.signup'))
 
-        new_user = User(username=username)
+        # Tạo user mới với đầy đủ thông tin
+        new_user = User(
+            email=email,
+            full_name=full_name,
+            username=username
+        )
         new_user.set_password(password) # Mật khẩu sẽ được hash
 
         db.session.add(new_user)
