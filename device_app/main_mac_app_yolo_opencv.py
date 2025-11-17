@@ -1,5 +1,3 @@
-# File: main_mac_app_v2_fixed_nodau.py (Chay tren MacBook)
-
 import sys
 import threading
 import asyncio
@@ -13,24 +11,21 @@ from PyQt5.QtGui import QPixmap, QImage, QFont
 from ultralytics import YOLO
 import cv2
 import numpy as np
-import json
 
-# ================== CAU HINH ==================
+# ================== CONFIG ==================
 MODEL_PATH = 'models/best.pt'
 SERVER_HOST = '0.0.0.0'
 SERVER_PORT = 8765
-MOTION_THRESHOLD = 0.5
 STABILITY_COUNT = 5
-# ===============================================
+# ============================================
 
-# --- Bien toan cuc ---
-previous_frame_gray = None
-stable_counter = 0
-last_stable_count = -1
-is_locked = False
+# ---------------- Global vars ----------------
 connected_clients = set()
+stable_counter = 0
+previous_count = -1
+is_locked = False
 
-# --- Lop Giao tiep ---
+# ---------------- Signal class ----------------
 class Communicate(QObject):
     frame_processed = pyqtSignal(np.ndarray)
     connection_status = pyqtSignal(str)
@@ -39,76 +34,51 @@ class Communicate(QObject):
 
 comm = Communicate()
 
-# --- WebSocket Server ---
+# ---------------- WebSocket handler ----------------
 async def handler(websocket):
-    global previous_frame_gray, stable_counter, last_stable_count, is_locked
+    global stable_counter, previous_count, is_locked
     connected_clients.add(websocket)
     client_ip = websocket.remote_address[0]
     comm.connection_status.emit(f"Ket noi: {client_ip}")
     print(f"[INFO] Client ket noi tu {client_ip}")
-    
-    previous_frame_gray = None
+
     stable_counter = 0
-    last_stable_count = -1
+    previous_count = -1
     is_locked = False
 
     try:
         async for message in websocket:
-            if isinstance(message, str):
-                data = json.loads(message)
-                if data.get("type") == "log":
-                    comm.log_message.emit(data.get("message"))
+            if not isinstance(message, bytes):
                 continue
 
-            header_end = message.find(b'\xff\xd8')
-            if header_end == -1:
-                continue
-
-            frame_data = message[header_end:]
-            nparr = np.frombuffer(frame_data, np.uint8)
+            nparr = np.frombuffer(message, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             if frame is None:
                 continue
 
-            current_frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            current_frame_gray = cv2.GaussianBlur(current_frame_gray, (21, 21), 0)
-
-            if previous_frame_gray is not None:
-                frame_delta = cv2.absdiff(previous_frame_gray, current_frame_gray)
-                thresh = cv2.threshold(frame_delta, 25, 255, cv2.THRESH_BINARY)[1]
-                change_percentage = (np.count_nonzero(thresh) / (thresh.shape[0] * thresh.shape[1])) * 100
-                if change_percentage > MOTION_THRESHOLD:
-                    is_locked = False
-                    stable_counter = 0
-
-            previous_frame_gray = current_frame_gray
-
-            if not is_locked:
-                results = model(frame, verbose=False)
-                pill_count = len(results[0].boxes)
-                if pill_count == last_stable_count:
-                    stable_counter += 1
-                else:
-                    last_stable_count = pill_count
-                    stable_counter = 1
-
-                if stable_counter >= STABILITY_COUNT:
-                    is_locked = True
-                    comm.log_message.emit(f"[STABLE] Ket qua on dinh: {pill_count} vien.")
-
             annotated_frame = frame.copy()
-            if is_locked:
-                summary_text = f"Da chot: {last_stable_count}"
-                cv2.putText(annotated_frame, summary_text, (10, 45),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
-                status_text = f"Da chot: {last_stable_count}"
-            else:
-                annotated_frame = model(frame, verbose=False)[0].plot()
-                summary_text = f"Dang dem: {last_stable_count} ({stable_counter}/{STABILITY_COUNT})"
-                cv2.putText(annotated_frame, summary_text, (10, 35),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 2)
-                status_text = "Dang dem..."
 
+            # --- YOLO detect ---
+            results = model(frame, verbose=False)
+            total_count = len(results[0].boxes)
+
+            # Ve bounding box
+            for box in results[0].boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+            # Kiem tra on dinh
+            if total_count == previous_count:
+                stable_counter += 1
+            else:
+                previous_count = total_count
+                stable_counter = 1
+
+            if stable_counter >= STABILITY_COUNT:
+                is_locked = True
+                comm.log_message.emit(f"[STABLE] Tong so on dinh: {total_count} vien.")
+
+            status_text = f"Tong so: {total_count}" + (" [CHOT]" if is_locked else "")
             comm.count_update.emit(status_text)
             comm.frame_processed.emit(annotated_frame)
 
@@ -117,7 +87,7 @@ async def handler(websocket):
         comm.connection_status.emit("Ngat ket noi")
         print(f"[INFO] Client ngat ket noi.")
 
-# --- Server ---
+# ---------------- Start server ----------------
 async def start_websocket_server():
     print(f"[INFO] WebSocket server chay tai ws://{SERVER_HOST}:{SERVER_PORT}")
     async with websockets.serve(handler, SERVER_HOST, SERVER_PORT, ping_interval=20, ping_timeout=20):
@@ -129,11 +99,11 @@ def run_server_in_thread():
     loop.run_until_complete(start_websocket_server())
     loop.close()
 
-# --- Giao dien PyQt5 ---
+# ---------------- PyQt5 GUI ----------------
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("AI Pill Counter - Dashboard")
+        self.setWindowTitle("AI Pill Counter - YOLO Only")
         self.setFixedSize(1200, 700)
 
         main_widget = QWidget()
@@ -142,12 +112,7 @@ class MainWindow(QMainWindow):
 
         self.video_label = QLabel("Dang cho tin hieu...")
         self.video_label.setAlignment(Qt.AlignCenter)
-        self.video_label.setStyleSheet("""
-            border: 2px solid #666;
-            background-color: black;
-            color: white;
-            font-size: 18px;
-        """)
+        self.video_label.setStyleSheet("border: 2px solid #666; background-color: black; color: white; font-size: 18px;")
         grid_layout.addWidget(self.video_label, 0, 0, 1, 2)
 
         control_panel = QWidget()
@@ -172,12 +137,7 @@ class MainWindow(QMainWindow):
         self.log_label = QLabel("Nhat ky hoat dong:")
         self.log_console = QTextEdit()
         self.log_console.setReadOnly(True)
-        self.log_console.setStyleSheet("""
-            background-color: #111;
-            color: #00FF00;
-            font-family: 'Courier New';
-            border: 1px solid #444;
-        """)
+        self.log_console.setStyleSheet("background-color: #111; color: #00FF00; font-family: 'Courier New'; border: 1px solid #444;")
         control_layout.addWidget(self.log_label)
         control_layout.addWidget(self.log_console)
         control_layout.addStretch()
@@ -195,8 +155,7 @@ class MainWindow(QMainWindow):
         bytes_per_line = ch * w
         qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(qt_image)
-        self.video_label.setPixmap(pixmap.scaled(
-            self.video_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        self.video_label.setPixmap(pixmap.scaled(self.video_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
     def update_connection_status(self, message):
         self.statusBar().showMessage(message)
@@ -210,13 +169,12 @@ class MainWindow(QMainWindow):
 
     def add_log(self, message):
         self.log_console.append(message)
-        self.log_console.verticalScrollBar().setValue(
-            self.log_console.verticalScrollBar().maximum())
+        self.log_console.verticalScrollBar().setValue(self.log_console.verticalScrollBar().maximum())
 
     def update_count(self, text):
         self.count_label.setText(text)
 
-# --- Chay ---
+# ---------------- Main ----------------
 if __name__ == '__main__':
     print("Dang khoi dong AI Pill Counter Server...")
     try:
@@ -227,6 +185,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     threading.Thread(target=run_server_in_thread, daemon=True).start()
+
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()

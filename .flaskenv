@@ -1,8 +1,4 @@
-FLASK_APP=server_app
-FLASK_ENV=development
-SECRET_KEY=supersecretkey
+# File: .flaskenv
 
-DB_USER=root
-DB_PASSWORD=
-DB_HOST=localhost:3307
-DB_NAME=pharmacy_db
+FLASK_APP=run.py
+FLASK_ENV=development

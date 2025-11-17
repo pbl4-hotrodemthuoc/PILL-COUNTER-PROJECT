@@ -1,7 +1,8 @@
-# File: server_app/main.py
+# File: server_app/main.py (PHIÊN BẢN HOÀN THIỆN)
 from flask import Blueprint, render_template, flash, redirect, url_for
 from flask_login import login_required, current_user
-from .models import db, TransactionLog, DrugType
+# --- THAY ĐỔI 1: Import đúng các model đã Việt hóa ---
+from .models import db, LoaiThuoc
 from functools import wraps
 
 main = Blueprint('main', __name__)
@@ -10,7 +11,9 @@ main = Blueprint('main', __name__)
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.role != 'admin':
+        # --- THAY ĐỔI 2: Sửa cách kiểm tra vai trò cho đúng với kiểu Enum ---
+        # So sánh tên của Enum ('admin') thay vì so sánh cả đối tượng
+        if not current_user.is_authenticated or current_user.vai_tro.name != 'admin':
             flash('Bạn không có quyền truy cập trang này.', 'danger')
             return redirect(url_for('main.dashboard'))
         return f(*args, **kwargs)
@@ -27,15 +30,16 @@ def dashboard():
 @admin_required
 def admin_page():
     # Trang này chỉ admin mới vào được
-    return render_template('admin.html')
+    return render_template('admin.html', user=current_user)
+
 @main.route('/profile')
 @login_required
 def profile():
     return render_template('profile.html', user=current_user)
-# ----> ĐẢM BẢO BẠN CÓ ĐOẠN CODE NÀY <----
+
 @main.route('/drugs')
 @login_required
-def drug_list():  # <--- Tên hàm phải là 'drug_list'
-    drugs = DrugType.query.order_by(DrugType.name.asc()).all()
+def drug_list():
+    # --- THAY ĐỔI 3: Query bằng model và tên cột đúng ---
+    drugs = LoaiThuoc.query.order_by(LoaiThuoc.ten_thuoc.asc()).all()
     return render_template('drugs.html', drugs=drugs, user=current_user)
-# --------------------------------------------

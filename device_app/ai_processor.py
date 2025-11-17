@@ -1,52 +1,94 @@
+# File: device_app/ai_processor.py (PHIEN BAN HOAN THIEN)
+
 from ultralytics import YOLO
-import os
 import cv2
+import numpy as np
 
 class AIProcessor:
-    def __init__(self):
-        # Duong dan toi model van duoc giu nguyen, rat tot!
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(base_dir, 'models', 'best.pt')
-        self.model = YOLO(model_path)
-        print(f"Model AI da duoc nap tu: {model_path}")
+    def __init__(self, model_path='models/best.pt'):
+        try:
+            self.model = YOLO(model_path)
+            print("[INFO] Da tai model YOLO thanh cong!")
+        except Exception as e:
+            self.model = None
+            print(f"[CRITICAL] Khong the tai model YOLO: {e}")
 
-    def process_frame(self, frame):
+    def classify_pill_color(self, pill_image):
         """
-        Xu ly mot khung hinh (frame) tu camera, dem va ve ket qua.
-        Day la ham chinh cho viec xu ly real-time.
+        Su dung OpenCV de phan loai mau sac cua vien thuoc da duoc cat.
         """
-        # 1. Thuc hien nhan dien tren frame
+        # Chuyen anh sang khong gian mau HSV (de phan tich mau sac tot hon)
+        hsv_image = cv2.cvtColor(pill_image, cv2.COLOR_BGR2HSV)
+
+        # --- Dinh nghia cac dai mau HSV cho cac loai thuoc ---
+        # Ban co the them hoac chinh sua cac dai mau nay
+        color_ranges = {
+            "TRANG": ([0, 0, 180], [180, 40, 255]),      # Mau trang
+            "XANH_DUONG": ([90, 80, 2], [126, 255, 255]),   # Mau xanh duong
+            "VANG": ([20, 100, 100], [30, 255, 255]),    # Mau vang
+            "DO": ([0, 120, 70], [10, 255, 255])         # Mau do (co 2 dai, day la dai duoi)
+        }
+
+        max_pixels = 0
+        detected_color = "KHONG_RO"
+
+        for color_name, (lower, upper) in color_ranges.items():
+            lower_bound = np.array(lower)
+            upper_bound = np.array(upper)
+            
+            # Tao mot mask chi giu lai cac pixel trong dai mau
+            mask = cv2.inRange(hsv_image, lower_bound, upper_bound)
+            
+            # Dem so pixel cua mau do
+            pixel_count = cv2.countNonZero(mask)
+            
+            if pixel_count > max_pixels:
+                max_pixels = pixel_count
+                detected_color = color_name
+        
+        return detected_color
+
+    def process_frame_with_classification(self, frame):
+        """
+        Quy trinh xu ly 2 buoc: Phat hien bang YOLO, Phan loai bang OpenCV.
+        """
+        if self.model is None:
+            return frame, {}
+
+        # Buoc 1: Dung YOLO de phat hien vi tri tat ca cac vien thuoc
         results = self.model(frame, verbose=False)
-        result = results[0]
         
-        # 2. Lay so luong
-        pill_count = len(result.boxes)
-        
-        # 3. Su dung ham plot() tien loi cua ultralytics de ve hop va nhan
-        # Ham nay nhanh va hieu qua hon ve thu cong
-        annotated_image = result.plot()
-        
-        # --- VE TONG SO LUONG LEN ANH ---
-        summary_text = f"Tong so: {pill_count}"
-        
-        # Cac tham so cho chu tong ket
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        summary_font_scale = 1.0
-        summary_font_thickness = 2
-        summary_color = (0, 255, 0) # Mau xanh la (BGR)
-        summary_position = (10, 30)
-        
-        # Ve chu
-        cv2.putText(annotated_image, summary_text, summary_position, font, summary_font_scale, summary_color, summary_font_thickness)
-        
-        return pill_count, annotated_image
+        annotated_frame = frame.copy()
+        pill_counts = {}
 
-    def count_pills_from_file(self, image_path):
-        """
-        Phuong thuc cu de xu ly tu file, van giu lai de test neu can.
-        """
-        image = cv2.imread(image_path)
-        if image is None:
-            return 0, None
-        # Goi ham xu ly frame moi de tai su dung code
-        return self.process_frame(image)
+        # Buoc 2: Lap qua tung vien thuoc da phat hien
+        for box in results[0].boxes:
+            # Lay toa do hop bao
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            
+            # Cat rieng hinh anh cua vien thuoc
+            pill_crop = frame[y1:y2, x1:x2]
+            
+            if pill_crop.size == 0:
+                continue
+            
+            # Dung OpenCV de phan loai mau sac
+            color_label = self.classify_pill_color(pill_crop)
+            
+            # Cap nhat so luong dem duoc
+            pill_counts[color_label] = pill_counts.get(color_label, 0) + 1
+            
+            # Ve hop bao va ten loai thuoc len anh
+            cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(annotated_frame, color_label, (x1, y1 - 10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+        # Ve bang tong ket so luong len goc anh
+        y_offset = 30
+        for label, count in pill_counts.items():
+            summary_text = f"{label}: {count}"
+            cv2.putText(annotated_frame, summary_text, (10, y_offset), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2)
+            y_offset += 30
+            
+        return annotated_frame, pill_counts
