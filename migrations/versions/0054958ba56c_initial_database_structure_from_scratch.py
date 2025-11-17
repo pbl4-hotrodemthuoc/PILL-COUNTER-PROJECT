@@ -1,16 +1,16 @@
-"""Final initial structure
+"""Initial database structure from scratch
 
-Revision ID: 043d2620b157
+Revision ID: 0054958ba56c
 Revises: 
-Create Date: 2025-11-17 13:11:29.142766
+Create Date: 2025-11-17 14:58:08.594943
 
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql
+
 
 # revision identifiers, used by Alembic.
-revision = '043d2620b157'
+revision = '0054958ba56c'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -40,43 +40,88 @@ def upgrade():
     sa.Column('ten_dang_nhap', sa.String(length=100), nullable=False),
     sa.Column('mat_khau', sa.String(length=255), nullable=False),
     sa.Column('ho_ten', sa.String(length=200), nullable=False),
+    sa.Column('gioi_tinh', sa.Enum('male', 'female', 'other', name='gioitinhenum'), nullable=True),
     sa.Column('vai_tro', sa.Enum('admin', 'pharmacist', name='vaitroenum'), nullable=False),
     sa.Column('so_dien_thoai', sa.String(length=20), nullable=True),
     sa.Column('email', sa.String(length=200), nullable=True),
-    sa.Column('ca_lam_viec', sa.String(length=50), nullable=True),
+    sa.Column('ca_lam_viec', sa.Enum('morning', 'afternoon', 'evening', 'fulltime', name='calamviecenum'), nullable=True),
     sa.Column('dang_hoat_dong', sa.Boolean(), nullable=False),
     sa.Column('dang_trong_ca', sa.Boolean(), nullable=False),
-    sa.Column('gioi_tinh', sa.Enum('male', 'female', 'other', name='gioitinhenum'), nullable=True),
     sa.Column('tong_don_da_xu_ly', sa.Integer(), nullable=True),
     sa.Column('tong_vien_da_dem', sa.Integer(), nullable=True),
     sa.Column('thoi_gian_xu_ly_tb', sa.DECIMAL(precision=5, scale=2), nullable=True),
     sa.Column('ty_le_chinh_xac', sa.DECIMAL(precision=5, scale=2), nullable=True),
-    sa.Column('diem_hieu_suat', sa.DECIMAL(precision=3, scale=2), nullable=True),
     sa.Column('ngay_tao', sa.TIMESTAMP(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.Column('lan_dang_nhap_cuoi', sa.TIMESTAMP(), nullable=True),
-    sa.Column('lan_hoat_dong_cuoi', sa.TIMESTAMP(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('ten_dang_nhap')
+    )
+    op.create_table('thiet_bi',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('ma_thiet_bi', sa.String(length=100), nullable=False),
+    sa.Column('ten_thiet_bi', sa.String(length=200), nullable=True),
+    sa.Column('trang_thai', sa.Enum('online', 'offline', name='trangthaithietbienum'), nullable=True),
+    sa.Column('lan_ket_noi_cuoi', sa.TIMESTAMP(), nullable=True),
+    sa.Column('tong_don_da_dem', sa.Integer(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('don_thuoc',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('ma_don_thuoc', sa.String(length=50), nullable=False),
     sa.Column('id_duoc_si', sa.Integer(), nullable=False),
+    sa.Column('id_thiet_bi', sa.Integer(), nullable=True),
     sa.Column('thoi_gian_tao_don', sa.DateTime(), nullable=False),
+    sa.Column('thoi_gian_bat_dau', sa.DateTime(), nullable=True),
+    sa.Column('thoi_gian_ket_thuc', sa.DateTime(), nullable=True),
+    sa.Column('thoi_gian_xu_ly_giay', sa.Integer(), nullable=True),
     sa.Column('tong_so_loai_thuoc', sa.Integer(), nullable=True),
     sa.Column('tong_vien_yeu_cau', sa.Integer(), nullable=True),
     sa.Column('tong_vien_dem_duoc', sa.Integer(), nullable=True),
     sa.Column('trang_thai_don', sa.Enum('pending', 'counting', 'completed', 'error', name='trangthaidonenum'), nullable=True),
     sa.Column('trang_thai_khop', sa.Enum('perfect', 'partial', 'mismatch', name='trangthaikhopdonenum'), nullable=True),
-    sa.Column('thoi_gian_bat_dau', sa.DateTime(), nullable=True),
-    sa.Column('thoi_gian_ket_thuc', sa.DateTime(), nullable=True),
-    sa.Column('thoi_gian_xu_ly_giay', sa.Integer(), nullable=True),
     sa.Column('ghi_chu_duoc_si', sa.Text(), nullable=True),
     sa.Column('ghi_chu_he_thong', sa.Text(), nullable=True),
     sa.Column('ngay_tao', sa.TIMESTAMP(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.ForeignKeyConstraint(['id_duoc_si'], ['nguoi_dung.id'], ),
+    sa.ForeignKeyConstraint(['id_thiet_bi'], ['thiet_bi.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('ma_don_thuoc')
+    )
+    op.create_table('nhat_ky_he_thong',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('loai_log', sa.Enum('info', 'warning', 'error', name='loailogenum'), nullable=True),
+    sa.Column('noi_dung', sa.Text(), nullable=False),
+    sa.Column('id_nguoi_dung', sa.Integer(), nullable=True),
+    sa.Column('ngay_tao', sa.TIMESTAMP(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+    sa.ForeignKeyConstraint(['id_nguoi_dung'], ['nguoi_dung.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('thong_bao',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('id_nguoi_dung', sa.Integer(), nullable=False),
+    sa.Column('loai', sa.Enum('info', 'warning', 'error', 'success', name='loaithongbaoenum'), nullable=True),
+    sa.Column('tieu_de', sa.String(length=255), nullable=False),
+    sa.Column('noi_dung', sa.Text(), nullable=False),
+    sa.Column('da_doc', sa.Boolean(), nullable=True),
+    sa.Column('thoi_gian_doc', sa.TIMESTAMP(), nullable=True),
+    sa.Column('ngay_tao', sa.TIMESTAMP(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+    sa.ForeignKeyConstraint(['id_nguoi_dung'], ['nguoi_dung.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('bao_cao_su_co',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('id_nguoi_bao_cao', sa.Integer(), nullable=False),
+    sa.Column('loai_su_co', sa.Enum('drug_defect', 'device_error', 'ai_error', 'other', name='loaisucoenum'), nullable=False),
+    sa.Column('id_don_thuoc', sa.Integer(), nullable=True),
+    sa.Column('mo_ta', sa.Text(), nullable=False),
+    sa.Column('url_hinh_anh', sa.String(length=500), nullable=True),
+    sa.Column('trang_thai', sa.Enum('pending', 'reviewing', 'resolved', 'rejected', name='trangthaisucoenum'), nullable=True),
+    sa.Column('phan_hoi_admin', sa.Text(), nullable=True),
+    sa.Column('ngay_tao', sa.TIMESTAMP(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+    sa.Column('ngay_xu_ly', sa.TIMESTAMP(), nullable=True),
+    sa.ForeignKeyConstraint(['id_don_thuoc'], ['don_thuoc.id'], ),
+    sa.ForeignKeyConstraint(['id_nguoi_bao_cao'], ['nguoi_dung.id'], ),
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('chi_tiet_don_thuoc',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -84,12 +129,11 @@ def upgrade():
     sa.Column('id_loai_thuoc', sa.Integer(), nullable=False),
     sa.Column('so_luong_yeu_cau', sa.Integer(), nullable=False),
     sa.Column('so_luong_dem_duoc', sa.Integer(), nullable=True),
-    sa.Column('chi_tiet_do_tin_cay', mysql.JSON(), nullable=True),
+    sa.Column('do_tin_cay', sa.DECIMAL(precision=5, scale=2), nullable=True),
     sa.Column('thoi_gian_nhan_dien_ms', sa.Integer(), nullable=True),
     sa.Column('trang_thai_khop', sa.Enum('match', 'over', 'under', 'missing', name='trangthaikhopchitietenum'), nullable=True),
     sa.Column('chenh_lech', sa.Integer(), nullable=True),
-    sa.Column('ty_le_chinh_xac_dem', sa.DECIMAL(precision=5, scale=2), nullable=True),
-    sa.Column('url_hinh_anh_thuc_te', sa.String(length=500), nullable=True),
+    sa.Column('url_hinh_anh', sa.String(length=500), nullable=True),
     sa.Column('ngay_tao', sa.TIMESTAMP(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.ForeignKeyConstraint(['id_don_thuoc'], ['don_thuoc.id'], ),
     sa.ForeignKeyConstraint(['id_loai_thuoc'], ['loai_thuoc.id'], ),
@@ -101,7 +145,11 @@ def upgrade():
 def downgrade():
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_table('chi_tiet_don_thuoc')
+    op.drop_table('bao_cao_su_co')
+    op.drop_table('thong_bao')
+    op.drop_table('nhat_ky_he_thong')
     op.drop_table('don_thuoc')
+    op.drop_table('thiet_bi')
     op.drop_table('nguoi_dung')
     op.drop_table('loai_thuoc')
     # ### end Alembic commands ###
