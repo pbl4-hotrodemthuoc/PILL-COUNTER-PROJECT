@@ -1,0 +1,318 @@
+# File: server_app/pharmacist.py
+# Phiên bản hoàn chỉnh với chức năng Lịch sử và API được xử lý lỗi tốt hơn.
+
+# --- CÁC THƯ VIỆN CẦN THIẾT ---
+from flask import Blueprint, render_template, flash, redirect, url_for, request, jsonify
+from flask_login import login_required, current_user
+from datetime import datetime, date, timedelta, time
+import logging # Thêm thư viện logging
+from sqlalchemy import func, case, desc, cast, Float
+
+# --- IMPORT CÁC MODEL TỪ DATABASE ---
+from .models import (
+    db, 
+    ThongBao, 
+    ThietBi, 
+    VaiTroEnum, 
+    DonThuoc, 
+    ChiTietDonThuoc, 
+    LoaiThuoc, 
+    TrangThaiKhopDonEnum
+)
+
+
+# --- KHỞI TẠO BLUEPRINT ---
+pharmacist = Blueprint('pharmacist', __name__)
+
+
+# --- CONTEXT PROCESSOR: Cung cấp các biến chung cho MỌI template của blueprint này ---
+@pharmacist.context_processor
+def inject_pharmacist_data():
+    """
+    Hàm này tự động chạy và cung cấp các biến cho template của dược sĩ.
+    Ví dụ: số thông báo chưa đọc, trạng thái thiết bị.
+    """
+    if current_user.is_authenticated and current_user.vai_tro == VaiTroEnum.pharmacist:
+        unread_notifications = ThongBao.query.filter_by(id_nguoi_dung=current_user.id, da_doc=False).all()
+        device = ThietBi.query.get(1) # Lấy thiết bị mặc định có ID=1
+        return dict(
+            unread_notifications_count=len(unread_notifications),
+            notifications=unread_notifications,
+            device_status=device.trang_thai.name if device else 'offline'
+        )
+    return {}
+
+
+# --- CÁC ROUTE CỦA DƯỢC SĨ ---
+
+@pharmacist.route('/dashboard')
+@login_required
+def dashboard():
+    return render_template('pharmacist/dashboard.html')
+
+@pharmacist.route('/new-order')
+@login_required
+def new_order():
+    return render_template('pharmacist/new_order.html')
+
+@pharmacist.route('/history')
+@login_required
+def my_history():
+    """
+    Hiển thị lịch sử các đơn thuốc đã xử lý của dược sĩ,
+    hỗ trợ tìm kiếm, lọc và phân trang.
+    """
+    page = request.args.get('page', 1, type=int)
+    
+    query = DonThuoc.query.filter_by(id_duoc_si=current_user.id)\
+                          .order_by(DonThuoc.thoi_gian_ket_thuc.desc())
+
+    search_ma_don_thuoc = request.args.get('search_ma_don_thuoc', '').strip()
+    filter_date_range = request.args.get('filter_date_range', '').strip()
+    filter_trang_thai_khop = request.args.get('filter_trang_thai_khop', '').strip()
+
+    if search_ma_don_thuoc:
+        query = query.filter(DonThuoc.ma_don_thuoc.ilike(f'%{search_ma_don_thuoc}%'))
+
+    if filter_trang_thai_khop:
+        try:
+            status_enum = TrangThaiKhopDonEnum[filter_trang_thai_khop]
+            query = query.filter(DonThuoc.trang_thai_khop == status_enum)
+        except KeyError:
+            pass
+
+    if filter_date_range:
+        try:
+            start_date_str, end_date_str = filter_date_range.split(' - ')
+            start_date = datetime.strptime(start_date_str, '%d/%m/%Y').date()
+            end_date = datetime.strptime(end_date_str, '%d/%m/%Y').date()
+            query = query.filter(db.func.date(DonThuoc.thoi_gian_ket_thuc) >= start_date,
+                                 db.func.date(DonThuoc.thoi_gian_ket_thuc) <= end_date)
+        except (ValueError, IndexError):
+            flash('Định dạng ngày tháng không hợp lệ.', 'warning')
+    
+    processed_statuses = ['completed', 'error']
+    query = query.filter(DonThuoc.trang_thai_don.in_(processed_statuses))
+    
+    orders = query.paginate(page=page, per_page=10, error_out=False)
+
+    current_filters = {
+        'search_ma_don_thuoc': search_ma_don_thuoc,
+        'filter_date_range': filter_date_range,
+        'filter_trang_thai_khop': filter_trang_thai_khop
+    }
+
+    return render_template('pharmacist/my_history.html', 
+                           orders=orders, 
+                           current_filters=current_filters)
+
+
+@pharmacist.route('/stats')
+@login_required
+def my_stats():
+    period = request.args.get('period', '7days')
+    today = date.today()
+    
+    if period == '30days':
+        start_date = today - timedelta(days=29)
+    elif period == 'this_month':
+        start_date = today.replace(day=1)
+    else: # Mặc định là '7days'
+        start_date = today - timedelta(days=6)
+    
+    end_date = today
+
+    # --- 1. TRUY VẤN CƠ SỞ ---
+    # Lấy tất cả chi tiết đơn thuốc đã hoàn thành trong khoảng thời gian
+    base_query = db.session.query(
+        DonThuoc, ChiTietDonThuoc
+    ).join(
+        ChiTietDonThuoc, DonThuoc.id == ChiTietDonThuoc.id_don_thuoc
+    ).filter(
+        DonThuoc.id_duoc_si == current_user.id,
+        DonThuoc.trang_thai_don == 'completed',
+        db.func.date(DonThuoc.thoi_gian_ket_thuc).between(start_date, end_date)
+    )
+
+    completed_orders_in_period = base_query.distinct(DonThuoc.id).count()
+    
+    # --- 2. BẢNG TỔNG HỢP SỐ LIỆU ---
+    summary_stats = {
+        'total_orders': completed_orders_in_period,
+        'total_pills_counted': 0,
+        'total_pills_requested': 0,
+        'avg_processing_time': 0
+    }
+    if completed_orders_in_period > 0:
+        summary_q = db.session.query(
+            func.sum(DonThuoc.tong_vien_dem_duoc),
+            func.sum(DonThuoc.tong_vien_yeu_cau),
+            func.avg(DonThuoc.thoi_gian_xu_ly_giay)
+        ).filter(
+            DonThuoc.id_duoc_si == current_user.id,
+            DonThuoc.trang_thai_don == 'completed',
+            db.func.date(DonThuoc.thoi_gian_ket_thuc).between(start_date, end_date)
+        ).first()
+        summary_stats['total_pills_counted'] = int(summary_q[0] or 0)
+        summary_stats['total_pills_requested'] = int(summary_q[1] or 0)
+        summary_stats['avg_processing_time'] = round(float(summary_q[2] or 0), 2)
+
+    # --- 3. BIỂU ĐỒ XU HƯỚNG HIỆU SUẤT (LINE CHART) ---
+    trend_data = db.session.query(
+        db.func.date(DonThuoc.thoi_gian_ket_thuc).label('date'),
+        func.avg(DonThuoc.thoi_gian_xu_ly_giay).label('avg_time'),
+        (func.sum(DonThuoc.tong_vien_dem_duoc) * 100.0 / func.sum(DonThuoc.tong_vien_yeu_cau)).label('accuracy')
+    ).filter(
+        DonThuoc.id_duoc_si == current_user.id,
+        DonThuoc.trang_thai_don == 'completed',
+        DonThuoc.tong_vien_yeu_cau > 0,
+        db.func.date(DonThuoc.thoi_gian_ket_thuc).between(start_date, end_date)
+    ).group_by('date').order_by('date').all()
+    
+    trend_chart_data = {
+        'labels': [d.date.strftime('%d/%m') for d in trend_data],
+        'accuracy_data': [round(float(d.accuracy), 2) for d in trend_data],
+        'time_data': [round(float(d.avg_time), 2) for d in trend_data]
+    }
+
+    # --- 4. BIỂU ĐỒ PHÂN BỐ LỖI (PIE CHART) ---
+    error_dist = base_query.with_entities(
+        func.sum(case((ChiTietDonThuoc.chenh_lech < 0, func.abs(ChiTietDonThuoc.chenh_lech)), else_=0)).label('under'),
+        func.sum(case((ChiTietDonThuoc.chenh_lech > 0, ChiTietDonThuoc.chenh_lech), else_=0)).label('over')
+    ).first()
+    
+    pie_chart_data = {
+        'under_count': int(error_dist.under or 0),
+        'over_count': int(error_dist.over or 0),
+    }
+    pie_chart_data['total_errors'] = pie_chart_data['under_count'] + pie_chart_data['over_count']
+    
+    # --- 5. TOP 5 LOẠI THUỐC ---
+    # Top 5 đếm nhiều nhất
+    top_counted_drugs = base_query.with_entities(
+        LoaiThuoc.ten_thuoc,
+        func.sum(ChiTietDonThuoc.so_luong_dem_duoc).label('total')
+    ).join(LoaiThuoc, ChiTietDonThuoc.id_loai_thuoc == LoaiThuoc.id)\
+     .group_by(LoaiThuoc.ten_thuoc)\
+     .order_by(desc('total'))\
+     .limit(5).all()
+
+    # Top 5 hay đếm sai nhất (tỷ lệ chính xác thấp nhất)
+    top_inaccurate_drugs_q = base_query.with_entities(
+        LoaiThuoc.ten_thuoc,
+        (cast(func.sum(ChiTietDonThuoc.so_luong_dem_duoc), Float) * 100 / func.sum(ChiTietDonThuoc.so_luong_yeu_cau)).label('accuracy'),
+        func.sum(ChiTietDonThuoc.so_luong_yeu_cau).label('total_req')
+    ).join(LoaiThuoc, ChiTietDonThuoc.id_loai_thuoc == LoaiThuoc.id)\
+     .filter(ChiTietDonThuoc.so_luong_yeu_cau > 0)\
+     .group_by(LoaiThuoc.ten_thuoc)\
+     .having(func.sum(ChiTietDonThuoc.so_luong_dem_duoc) != func.sum(ChiTietDonThuoc.so_luong_yeu_cau))\
+     .order_by('accuracy')\
+     .limit(5).all()
+
+    return render_template(
+        'pharmacist/my_stats.html',
+        period=period,
+        summary_stats=summary_stats,
+        trend_chart_data=trend_chart_data,
+        pie_chart_data=pie_chart_data,
+        top_counted_drugs=top_counted_drugs,
+        top_inaccurate_drugs=top_inaccurate_drugs_q
+    )
+
+
+@pharmacist.route('/report-incident')
+@login_required
+def report_incident():
+    return render_template('pharmacist/report_incident.html')
+
+@pharmacist.route('/guide')
+@login_required
+def guide():
+    return render_template('pharmacist/guide.html')
+
+
+# --- CÁC ROUTE XỬ LÝ NGHIỆP VỤ CHO LAYOUT ---
+
+@pharmacist.route('/notifications/mark-all-read')
+@login_required
+def mark_all_read():
+    ThongBao.query.filter_by(id_nguoi_dung=current_user.id, da_doc=False).update({'da_doc': True})
+    db.session.commit()
+    flash('Tất cả thông báo đã được đánh dấu là đã đọc.', 'success')
+    return redirect(request.referrer or url_for('pharmacist.dashboard'))
+
+@pharmacist.route('/notifications/<int:id>')
+@login_required
+def view_notification(id):
+    notif = ThongBao.query.get_or_404(id)
+    if notif.id_nguoi_dung != current_user.id:
+        flash('Bạn không có quyền xem thông báo này.', 'danger')
+        return redirect(url_for('pharmacist.dashboard'))
+    notif.da_doc = True
+    db.session.commit()
+    return redirect(request.referrer or url_for('pharmacist.dashboard'))
+
+
+@pharmacist.route('/notifications/all')
+@login_required
+def all_notifications():
+    return "Trang hiển thị tất cả thông báo của Dược sĩ"
+
+@pharmacist.route('/settings')
+@login_required
+def settings():
+    return "Trang Cài đặt của Dược sĩ"
+
+
+# --- API ENDPOINT ĐỂ LẤY CHI TIẾT ĐƠN THUỐC (ĐÃ CẬP NHẬT) ---
+
+@pharmacist.route('/api/order-details/<int:order_id>')
+@login_required
+def get_order_details(order_id):
+    """
+    API endpoint để lấy chi tiết một đơn thuốc dưới dạng JSON.
+    Đã thêm xử lý lỗi để đảm bảo hoạt động ổn định.
+    """
+    try:
+        order = DonThuoc.query.filter_by(id=order_id, id_duoc_si=current_user.id).first()
+
+        if not order:
+            return jsonify({'error': 'Không tìm thấy đơn thuốc hoặc bạn không có quyền truy cập.'}), 404
+
+        details = db.session.query(
+            ChiTietDonThuoc, LoaiThuoc.ten_thuoc
+        ).join(
+            LoaiThuoc, ChiTietDonThuoc.id_loai_thuoc == LoaiThuoc.id
+        ).filter(
+            ChiTietDonThuoc.id_don_thuoc == order.id
+        ).all()
+
+        details_list = [
+            {
+                'ten_thuoc': ten_thuoc,
+                'so_luong_yeu_cau': detail.so_luong_yeu_cau,
+                'so_luong_dem_duoc': detail.so_luong_dem_duoc or 0,
+                'chenh_lech': detail.chenh_lech or 0,
+                'url_hinh_anh': detail.url_hinh_anh,
+            } for detail, ten_thuoc in details
+        ]
+
+        response_data = {
+            'ma_don_thuoc': order.ma_don_thuoc,
+            'duoc_si_xu_ly': order.duoc_si.ho_ten,
+            'thoi_gian_tao_don': order.thoi_gian_tao_don.strftime('%H:%M %d/%m/%Y'),
+            'thoi_gian_ket_thuc': order.thoi_gian_ket_thuc.strftime('%H:%M %d/%m/%Y') if order.thoi_gian_ket_thuc else 'N/A',
+            'thoi_gian_xu_ly_giay': order.thoi_gian_xu_ly_giay,
+            'tong_vien_yeu_cau': order.tong_vien_yeu_cau,
+            'tong_vien_dem_duoc': order.tong_vien_dem_duoc,
+            'ghi_chu_duoc_si': order.ghi_chu_duoc_si or '',
+            'ghi_chu_he_thong': order.ghi_chu_he_thong or '',
+            'chi_tiet': details_list
+        }
+        return jsonify(response_data)
+
+    except Exception as e:
+        # Ghi lại lỗi ra console của server để debug
+        logging.error(f"Error fetching order details for order_id {order_id}: {e}")
+        # Trả về một lỗi chung cho client
+        return jsonify({'error': 'Đã xảy ra lỗi ở máy chủ khi truy vấn dữ liệu.'}), 500

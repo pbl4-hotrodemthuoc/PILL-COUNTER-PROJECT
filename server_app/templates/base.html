@@ -1,0 +1,58 @@
+<!-- File: server_app/templates/base.html -->
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}PharmaSys - Hệ Thống Đếm Thuốc{% endblock %}</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="alternate icon" href="{{ url_for('static', filename='favicon.png') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+    {% block body_content %}
+    <!-- Nội dung chính của trang sẽ được chèn vào đây bởi các file layout con -->
+    <!-- Ví dụ: admin/layout.html hoặc pharmacist/layout.html -->
+    {% endblock %}
+
+    <!-- jQuery (tùy chọn, nhưng hữu ích cho nhiều thư viện JS) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- ===== SỬA LỖI 'timeago': THÊM SCRIPT CỦA MOMENT.JS ===== -->
+    {{ moment.include_moment() }}
+    <script>
+        // Cấu hình moment để sử dụng tiếng Việt
+        moment.locale('vi');
+    </script>
+    <!-- ======================================================= -->
+
+    <!-- Socket.IO (cho real-time) -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+    <!-- Chart.js (cho biểu đồ) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+    <!-- Custom JS (nếu có) -->
+    <!-- <script src="{{ url_for('static', filename='js/main.js') }}"></script> -->
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>
