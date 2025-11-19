@@ -1,0 +1,73 @@
+{% extends 'admin/layout.html' %}
+
+{% set page_title = "Thêm thuốc mới" if action == 'add' else "Chỉnh sửa thông tin thuốc" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content_header %}
+<h1 class="h3 mb-4 text-gray-800">{{ page_title }}</h1>
+{% endblock %}
+
+{% block content %}
+<div class="card shadow mb-4">
+    <div class="card-body">
+        {# Form sẽ gửi dữ liệu đến route 'add_drug' hoặc 'edit_drug' tùy vào biến action #}
+        <form method="POST" 
+              action="{{ url_for('admin.add_drug') if action == 'add' else url_for('admin.edit_drug', drug_id=drug.id) }}">
+            
+            <div class="form-row">
+                <div class="form-group col-md-8">
+                    <label for="ten_thuoc">Tên thuốc</label>
+                    <input type="text" class="form-control" id="ten_thuoc" name="ten_thuoc" 
+                           value="{{ drug.ten_thuoc or '' }}" required>
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="ma_thuoc">Mã thuốc ( duy nhất )</label>
+                    <input type="text" class="form-control" id="ma_thuoc" name="ma_thuoc" 
+                           value="{{ drug.ma_thuoc or '' }}" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="mo_ta">Mô tả</label>
+                <textarea class="form-control" id="mo_ta" name="mo_ta" rows="3">{{ drug.mo_ta or '' }}</textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group col-md-4">
+                    <label for="ton_kho_uoc_tinh">Tồn kho ước tính</label>
+                    <input type="number" class="form-control" id="ton_kho_uoc_tinh" name="ton_kho_uoc_tinh" 
+                           value="{{ drug.ton_kho_uoc_tinh or 0 }}" min="0">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="nguong_canh_bao">Ngưỡng cảnh báo tồn kho</label>
+                    <input type="number" class="form-control" id="nguong_canh_bao" name="nguong_canh_bao" 
+                           value="{{ drug.nguong_canh_bao or 0 }}" min="0">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="don_vi_tinh">Đơn vị tính</label>
+                    <input type="text" class="form-control" id="don_vi_tinh" name="don_vi_tinh" 
+                           value="{{ drug.don_vi_tinh or 'viên' }}">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="url_hinh_anh">URL Hình ảnh (tùy chọn)</label>
+                <input type="text" class="form-control" id="url_hinh_anh" name="url_hinh_anh" 
+                       value="{{ drug.url_hinh_anh or '' }}">
+            </div>
+
+            <hr>
+
+            <button type="submit" class="btn btn-primary">
+                {% if action == 'add' %}
+                <i class="fas fa-plus mr-2"></i>Thêm mới
+                {% else %}
+                <i class="fas fa-save mr-2"></i>Lưu thay đổi
+                {% endif %}
+            </button>
+            <a href="{{ url_for('admin.drugs') }}" class="btn btn-secondary">Hủy</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

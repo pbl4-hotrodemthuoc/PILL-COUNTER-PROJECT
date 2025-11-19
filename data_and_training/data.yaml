@@ -1,0 +1,10 @@
+# Đường dẫn tương đối, tính từ thư mục data_and_training nơi bạn sẽ chạy train.py
+train: ./dataset/train/images
+val: ./dataset/valid/images
+test: ./dataset/test/images # Thêm cả bộ test để đánh giá sau này
+
+# Số lượng lớp đối tượng (lấy từ file gốc)
+nc: 1
+
+# Tên của lớp đối tượng. Ta thống nhất dùng 'cap' cho nhất quán với dự án.
+names: ['cap']

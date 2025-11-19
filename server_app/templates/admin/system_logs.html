@@ -1,0 +1,111 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Nhật Ký Hệ Thống{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <!-- Page Heading -->
+    <h1 class="h3 mb-2 text-gray-800">Nhật Ký Hệ Thống</h1>
+    <p class="mb-4">Ghi lại tất cả các hoạt động quan trọng diễn ra trên hệ thống.</p>
+
+    <!-- Filter Card -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-filter mr-2"></i>Lọc Nhật Ký</h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('admin.system_logs') }}" class="form-row align-items-end">
+                <div class="form-group col-md-3">
+                    <label for="log_date">Theo ngày</label>
+                    <input type="date" class="form-control" id="log_date" name="log_date" value="{{ filters.log_date or '' }}">
+                </div>
+                <div class="form-group col-md-3">
+                    <label for="log_type">Loại Log</label>
+                    <select class="form-control" id="log_type" name="log_type">
+                        <option value="">-- Tất cả các loại --</option>
+                        {% for type in LoaiLogEnum %}
+                        <option value="{{ type.name }}" {% if filters.log_type == type.name %}selected{% endif %}>{{ type.value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="user_id">Người Dùng Liên Quan</label>
+                    <select class="form-control" id="user_id" name="user_id">
+                        <option value="">-- Tất cả người dùng --</option>
+                        {% for user in all_users %}
+                        <option value="{{ user.id }}" {% if filters.user_id|int == user.id %}selected{% endif %}>{{ user.ho_ten }} ({{ user.ten_dang_nhap }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group col-md-2">
+                    <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-search"></i> Lọc</button>
+                    <a href="{{ url_for('admin.system_logs') }}" class="btn btn-secondary btn-block mt-2">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Logs Table Card -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Danh sách Nhật Ký</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th style="width: 15%;">Thời Gian</th>
+                            <th style="width: 10%;">Loại</th>
+                            <th>Nội Dung</th>
+                            <th style="width: 15%;">Người Dùng</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs.items %}
+                        <tr>
+                            <td>{{ log.ngay_tao.strftime('%H:%M:%S %d-%m-%Y') }}</td>
+                            <td>
+                                {% if log.loai_log.name == 'info' %}
+                                    <span class="badge badge-info">{{ log.loai_log.value }}</span>
+                                {% elif log.loai_log.name == 'warning' %}
+                                    <span class="badge badge-warning">{{ log.loai_log.value }}</span>
+                                {% elif log.loai_log.name == 'error' %}
+                                    <span class="badge badge-danger">{{ log.loai_log.value }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ log.noi_dung }}</td>
+                            <td>{{ log.nguoi_thuc_hien.ho_ten if log.nguoi_thuc_hien else 'Hệ thống' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center">Không tìm thấy nhật ký nào phù hợp.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if logs.pages > 1 %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item {% if not logs.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('admin.system_logs', page=logs.prev_num, **filters) }}">Trước</a>
+                    </li>
+                    {% for page_num in logs.iter_pages() %}
+                        <li class="page-item {% if page_num == logs.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('admin.system_logs', page=page_num, **filters) }}">{{ page_num }}</a>
+                        </li>
+                    {% endfor %}
+                    <li class="page-item {% if not logs.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('admin.system_logs', page=logs.next_num, **filters) }}">Sau</a>
+                    </li>
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
