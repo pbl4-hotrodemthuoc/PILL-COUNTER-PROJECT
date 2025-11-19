@@ -1,0 +1,121 @@
+<!-- File: templates/pharmacist/edit_order.html -->
+{% extends "pharmacist/layout.html" %}
+
+{% block title %}Sửa Đơn Thuốc{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3><i class="bi bi-pencil-square text-warning"></i> Sửa Đơn: {{ order.ma_don_thuoc }}</h3>
+    <a href="{{ url_for('pharmacist.order_list') }}" class="btn btn-outline-secondary">Hủy bỏ</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="POST">
+            
+            <div class="mb-3">
+                <label class="form-label">Tên Bệnh nhân:</label>
+                <input type="text" name="patient_name" class="form-control" value="{{ order.ten_benh_nhan }}">
+            </div>
+
+            <!-- Khu vực thêm thuốc (Giống trang tạo mới) -->
+            <div class="mb-4 bg-light p-3 rounded border">
+                <label class="form-label fw-bold">Thêm thuốc mới:</label>
+                <div class="input-group">
+                    <input type="text" id="drugSearchInput" class="form-control" placeholder="Tìm tên thuốc...">
+                </div>
+                <div id="searchResults" class="list-group mt-2 shadow" style="position:absolute; z-index:1000; width: 50%; display:none;"></div>
+            </div>
+
+            <table class="table table-bordered align-middle">
+                <thead class="table-primary">
+                    <tr>
+                        <th>Tên Thuốc</th>
+                        <th width="150px">Số lượng</th>
+                        <th width="50px">Xóa</th>
+                    </tr>
+                </thead>
+                <tbody id="drugListBody">
+                    <!-- Điền sẵn các thuốc cũ -->
+                    {% for item in order.chi_tiet_don %}
+                    <tr>
+                        <td>
+                            {{ item.loai_thuoc_info.ten_thuoc }} ({{ item.loai_thuoc_info.ma_thuoc }})
+                            <input type="hidden" name="drug_ids[]" value="{{ item.id_loai_thuoc }}">
+                        </td>
+                        <td>
+                            <input type="number" name="quantities[]" class="form-control text-center fw-bold" value="{{ item.so_luong_yeu_cau }}" min="1" required>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="mb-3">
+                <label class="form-label">Ghi chú:</label>
+                <textarea name="note" class="form-control" rows="2">{{ order.ghi_chu_duoc_si }}</textarea>
+            </div>
+
+            <div class="d-grid">
+                <button type="submit" class="btn btn-warning btn-lg text-white">Cập Nhật Thay Đổi</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- SCRIPT JS (Copy lại phần search thuốc từ new_order.html sang đây) -->
+<script>
+    // ... (Copy đoạn script JS xử lý tìm kiếm và thêm dòng từ new_order.html) ...
+    // Chỉ cần copy hàm addDrugToTable và event listener của searchInput
+    
+    const searchInput = document.getElementById('drugSearchInput');
+    const resultsBox = document.getElementById('searchResults');
+    const tableBody = document.getElementById('drugListBody');
+
+    searchInput.addEventListener('input', async function() {
+        // ... logic tìm kiếm y hệt ...
+        const query = this.value.trim();
+        if (query.length < 2) { resultsBox.style.display = 'none'; return; }
+        
+        const response = await fetch(`/pharmacist/api/search-drugs?q=${query}`);
+        const drugs = await response.json();
+        
+        resultsBox.innerHTML = '';
+        if (drugs.length > 0) {
+            resultsBox.style.display = 'block';
+            drugs.forEach(drug => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'list-group-item list-group-item-action';
+                item.textContent = drug.text;
+                item.onclick = () => {
+                    addDrugToTable(drug);
+                    resultsBox.style.display = 'none';
+                    searchInput.value = '';
+                };
+                resultsBox.appendChild(item);
+            });
+        }
+    });
+
+    function addDrugToTable(drug) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                ${drug.text}
+                <input type="hidden" name="drug_ids[]" value="${drug.id}">
+            </td>
+            <td>
+                <input type="number" name="quantities[]" class="form-control text-center fw-bold" value="10" min="1" required>
+            </td>
+            <td>
+                <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    }
+</script>
+{% endblock %}

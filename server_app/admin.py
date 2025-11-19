@@ -2,7 +2,8 @@
 from flask import Blueprint, render_template, flash, redirect, url_for
 from flask_login import login_required, current_user
 from functools import wraps
-from .models import db, NguoiDung, LoaiThuoc, VaiTroEnum, BaoCaoSuCo, TrangThaiSuCoEnum
+from .extensions import db
+from .models import NguoiDung, LoaiThuoc, VaiTroEnum, BaoCaoSuCo, TrangThaiSuCoEnum
 
 admin = Blueprint('admin', __name__)
 

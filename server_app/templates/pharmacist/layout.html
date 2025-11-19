@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block body_content %}
+
 <style>
     /* --- CẤU HÌNH CSS RIÊNG CHO LAYOUT DƯỢC SĨ --- */
     :root {
@@ -76,9 +77,10 @@
     <div class="container-fluid h-100">
         <nav class="navbar navbar-expand-lg h-100 py-0">
             
+            <!-- BRAND -->
             <a href="{{ url_for('pharmacist.dashboard') }}" class="brand-logo me-4">
-                <div class="brand-icon-box">
-                    <i class="fa-solid fa-pills"></i>
+                <div class="fa-solid fa-pills brand-icon-box d-flex align-items-center justify-content-center">
+                    <i class="bi bi-capsule"></i>
                 </div>
                 <div class="brand-text">
                     <span class="brand-title">PharmaSys</span>
@@ -91,41 +93,50 @@
             </button>
 
             <div class="collapse navbar-collapse" id="mainNav">
+                <!-- MAIN MENU -->
                 <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
                     <li class="nav-item">
                         <a href="{{ url_for('pharmacist.dashboard') }}" class="nav-link-custom {% if request.endpoint == 'pharmacist.dashboard' %}active{% endif %}">
                             <i class="bi bi-grid-1x2-fill"></i> Tổng Quan
                         </a>
                     </li>
+                    
+                    <!-- MỤC MỚI: ĐẾM THUỐC -->
                     <li class="nav-item">
-                        <a href="{{ url_for('pharmacist.new_order') }}" class="nav-link-custom {% if request.endpoint == 'pharmacist.new_order' %}active{% endif %}">
-                            <i class="bi bi-plus-circle-fill"></i> Tạo Đơn
+                        <a href="{{ url_for('pharmacist.counting_page_no_id') }}" class="nav-link-custom {% if request.endpoint and 'counting' in request.endpoint %}active{% endif %}">
+                           <i class="bi bi-camera-video-fill"></i> Đếm Thuốc
                         </a>
                     </li>
+
+                    <li class="nav-item">
+                        <a href="{{ url_for('pharmacist.new_order') }}" class="nav-link-custom {% if request.endpoint == 'pharmacist.new_order' %}active{% endif %}">
+                           <i class="bi bi-file-earmark-medical-fill"></i> Tạo Đơn
+                        </a>
+                    </li>
+                    
                     <li class="nav-item">
                         <a href="{{ url_for('pharmacist.my_history') }}" class="nav-link-custom {% if request.endpoint == 'pharmacist.my_history' %}active{% endif %}">
                             <i class="bi bi-clock-history"></i> Lịch Sử
                         </a>
                     </li>
+                    
                     <li class="nav-item">
                         <a href="{{ url_for('pharmacist.my_stats') }}" class="nav-link-custom {% if request.endpoint == 'pharmacist.my_stats' %}active{% endif %}">
                             <i class="bi bi-bar-chart-line-fill"></i> Thống Kê
                         </a>
                     </li>
+                    
                     <li class="nav-item">
                         <a href="{{ url_for('pharmacist.report_incident') }}" class="nav-link-custom {% if request.endpoint == 'pharmacist.report_incident' %}active{% endif %}">
                             <i class="bi bi-exclamation-triangle-fill"></i> Báo Cáo
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a href="{{ url_for('pharmacist.guide') }}" class="nav-link-custom {% if request.endpoint == 'pharmacist.guide' %}active{% endif %}">
-                            <i class="bi bi-journal-text"></i> Hướng Dẫn
-                        </a>
-                    </li>
                 </ul>
 
+                <!-- RIGHT MENU (USER & NOTIFICATION) -->
                 <div class="d-flex align-items-center gap-2">
                     
+                    <!-- Notification Dropdown -->
                     <div class="dropdown">
                         <button class="icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-bell-fill fs-5 text-secondary"></i>
@@ -171,12 +182,12 @@
                                     </li>
                                 {% endif %}
                             </div>
-                            
                             <li><hr class="dropdown-divider my-1"></li>
                             <li><a class="dropdown-item text-center small fw-bold text-primary" href="{{ url_for('pharmacist.all_notifications') }}">Xem tất cả</a></li>
                         </ul>
                     </div>
 
+                    <!-- User Dropdown -->
                     <div class="dropdown ms-1">
                         <button class="btn btn-link text-decoration-none p-0 d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <div class="text-end d-none d-md-block">
@@ -185,7 +196,8 @@
                                     {% if current_user.ca_lam_viec %}{{ current_user.ca_lam_viec.value }}{% else %}Dược sĩ{% endif %}
                                 </div>
                             </div>
-                            <img src="{{ current_user.avatar_url or 'https://ui-avatars.com/api/?name=' + current_user.ho_ten + '&background=0d6efd&color=fff' }}" alt="Avatar" class="user-avatar">
+                            <!-- Avatar Placeholder using UI Avatars -->
+                            <img src="https://ui-avatars.com/api/?name={{ current_user.ho_ten }}&background=0d6efd&color=fff" alt="Avatar" class="user-avatar">
                         </button>
                         
                         <ul class="dropdown-menu dropdown-menu-end shadow p-2">
@@ -218,9 +230,21 @@
     </nav>
 </header>
 
+<!-- MAIN CONTENT AREA -->
 <main class="container-fluid py-4" style="min-height: calc(100vh - var(--header-height) - 60px); background-color: #f8f9fa;">
-    {% include '_flash_messages.html' %}
+    <!-- Khu vực hiển thị Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm mb-4" role="alert">
+                    <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
     
+    <!-- Block nội dung chính -->
     {% block content %}{% endblock %}
 </main>
 
