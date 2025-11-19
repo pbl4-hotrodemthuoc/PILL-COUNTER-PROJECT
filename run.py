@@ -1,7 +1,11 @@
 # File: run.py
 from server_app import create_app
+import os
 
 app = create_app()
+
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'server_app/static/uploads/incidents')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 if __name__ == '__main__':
     # Chạy ứng dụng với debug mode được BẬT

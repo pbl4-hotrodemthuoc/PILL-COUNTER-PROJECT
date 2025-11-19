@@ -1,0 +1,652 @@
+{% extends "pharmacist/layout.html" %}
+
+{% block content %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tất cả thông báo - PILL-COUNTER</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        /* Use consistent theme colors from styles.css and improve overall design */
+        :root {
+            --primary-color: #3074E6;
+            --primary-light: #5B8DEF;
+            --primary-dark: #1E4D9E;
+            --success-color: #10B981;
+            --warning-color: #F59E0B;
+            --error-color: #EF4444;
+            --info-color: #06B6D4;
+            --light-bg: #F8FAFC;
+            --border-color: #E2E8F0;
+            --text-primary: #1F2937;
+            --text-secondary: #6B7280;
+            --card-bg: #FFFFFF;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background-color: var(--light-bg);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        .container-notifications {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header Section */
+        .notifications-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .notifications-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* Search & Filter Bar */
+        .search-filter-bar {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+        }
+
+        .search-box form {
+            display: flex;
+            gap: 0.75rem;
+            margin: 0;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+            background-color: var(--card-bg);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(48, 116, 230, 0.1);
+        }
+
+        .filter-select {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            background-color: var(--card-bg);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(48, 116, 230, 0.1);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.25rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+            box-shadow: 0 4px 12px rgba(48, 116, 230, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn-sm {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            border-radius: 0.4rem;
+        }
+
+        /* Added styles for read/unread toggle button */
+        .btn-read-toggle {
+            background-color: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            border-radius: 0.4rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-read-toggle:hover {
+            background-color: var(--light-bg);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .btn-read-toggle.read {
+            background-color: #D1FAE5;
+            border-color: var(--success-color);
+            color: var(--success-color);
+        }
+
+        /* Notifications List */
+        .notifications-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .notification-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .notification-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: transparent;
+            transition: background-color 0.3s ease;
+        }
+
+        .notification-card.unread {
+            background-color: #F0F7FF;
+            border-color: #BFE0FF;
+        }
+
+        .notification-card.unread::before {
+            background-color: var(--primary-color);
+        }
+
+        .notification-card:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Badge Icon */
+        .notification-badge {
+            min-width: 3rem;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .badge-info {
+            background-color: #DBEAFE;
+            color: var(--info-color);
+        }
+
+        .badge-warning {
+            background-color: #FEF3C7;
+            color: var(--warning-color);
+        }
+
+        .badge-error {
+            background-color: #FEE2E2;
+            color: var(--error-color);
+        }
+
+        .badge-success {
+            background-color: #D1FAE5;
+            color: var(--success-color);
+        }
+
+        /* Content */
+        .notification-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+            gap: 1rem;
+        }
+
+        .notification-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .notification-time {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .notification-body {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin: 0.5rem 0 0 0;
+        }
+
+        .notification-type-tag {
+            display: inline-block;
+            padding: 0.35rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 0.75rem;
+        }
+
+        .type-info {
+            background-color: #DBEAFE;
+            color: var(--info-color);
+        }
+
+        .type-warning {
+            background-color: #FEF3C7;
+            color: var(--warning-color);
+        }
+
+        .type-error {
+            background-color: #FEE2E2;
+            color: var(--error-color);
+        }
+
+        .type-success {
+            background-color: #D1FAE5;
+            color: var(--success-color);
+        }
+
+        /* Added container for actions */
+        .notification-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-shrink: 0;
+            align-items: center;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            background-color: var(--card-bg);
+            border: 2px dashed var(--border-color);
+            border-radius: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .empty-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-message {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .pagination a,
+        .pagination span {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.4rem;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .pagination a:hover {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .pagination .current {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            cursor: default;
+            font-weight: 600;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container-notifications {
+                padding: 1rem;
+            }
+
+            .notifications-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .notifications-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .search-filter-bar {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            .search-box form {
+                flex-direction: column;
+            }
+
+            .search-box input {
+                width: 100%;
+            }
+
+            .notification-card {
+                gap: 0.75rem;
+                padding: 1rem;
+                flex-direction: column;
+            }
+
+            .notification-header {
+                flex-direction: column;
+                gap: 0.25rem;
+                width: 100%;
+            }
+
+            .notification-time {
+                white-space: normal;
+            }
+
+            /* Updated mobile layout for actions */
+            .notification-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .btn {
+                width: auto;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .notifications-header h1 {
+                font-size: 1.25rem;
+            }
+
+            .notification-badge {
+                min-width: 2.5rem;
+                width: 2.5rem;
+                height: 2.5rem;
+                font-size: 1.25rem;
+            }
+
+            .notification-title {
+                font-size: 0.95rem;
+            }
+
+            .notification-body {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container-notifications">
+        <!-- Header -->
+        <div class="notifications-header">
+            <h1>📬 Tất cả thông báo</h1>
+            <div class="header-actions">
+                {% if notifications and notifications|length > 0 %}
+                    <form method="POST" action="{{ url_for('pharmacist.mark_all_read') }}" style="margin: 0;">
+                        <button type="submit" class="btn btn-primary">
+                            ✓ Đánh dấu tất cả đã đọc
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Search & Filter -->
+        <div class="search-filter-bar">
+            <div class="search-box">
+                <form method="GET" style="display: flex; gap: 0.75rem; margin: 0;">
+                    <input 
+                        type="text" 
+                        name="search_query" 
+                        placeholder="🔍 Tìm kiếm thông báo..." 
+                        value="{{ search_query or '' }}"
+                    >
+                    <button type="submit" class="btn btn-primary">Tìm</button>
+                </form>
+            </div>
+            <select name="filter_loai" class="filter-select" onchange="location.href='{{ url_for('pharmacist.all_notifications') }}?filter_loai=' + this.value + '&search_query={{ search_query or '' }}'">
+                <option value="">Tất cả loại</option>
+                <option value="info" {% if current_filter == 'info' %}selected{% endif %}>ℹ️ Thông tin</option>
+                <option value="warning" {% if current_filter == 'warning' %}selected{% endif %}>⚠️ Cảnh báo</option>
+                <option value="error" {% if current_filter == 'error' %}selected{% endif %}>❌ Lỗi</option>
+                <option value="success" {% if current_filter == 'success' %}selected{% endif %}>✅ Thành công</option>
+            </select>
+        </div>
+
+        <!-- Notifications List -->
+        {% if notifications and notifications|length > 0 %}
+            <div class="notifications-list">
+                {% for notif in notifications %}
+                    <div class="notification-card {% if not notif.da_doc %}unread{% endif %}" data-notification-id="{{ notif.id }}">
+                        <div class="notification-badge 
+                            {% if notif.loai.name == 'info' %}badge-info
+                            {% elif notif.loai.name == 'warning' %}badge-warning
+                            {% elif notif.loai.name == 'error' %}badge-error
+                            {% elif notif.loai.name == 'success' %}badge-success
+                            {% endif %}">
+                            {% if notif.loai.name == 'info' %}ℹ️
+                            {% elif notif.loai.name == 'warning' %}⚠️
+                            {% elif notif.loai.name == 'error' %}❌
+                            {% elif notif.loai.name == 'success' %}✅
+                            {% endif %}
+                        </div>
+                        
+                        <div class="notification-content">
+                            <div class="notification-header">
+                                <div>
+                                    <h3 class="notification-title">{{ notif.tieu_de }}</h3>
+                                    <p class="notification-body">{{ notif.noi_dung }}</p>
+                                    <span class="notification-type-tag 
+                                        {% if notif.loai.name == 'info' %}type-info
+                                        {% elif notif.loai.name == 'warning' %}type-warning
+                                        {% elif notif.loai.name == 'error' %}type-error
+                                        {% elif notif.loai.name == 'success' %}type-success
+                                        {% endif %}">
+                                        {{ notif.loai.value }}
+                                    </span>
+                                </div>
+                                <span class="notification-time">
+                                    {{ notif.ngay_tao.strftime('%d/%m/%Y %H:%M') }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Added read/unread toggle button -->
+                        <div class="notification-actions">
+                            <button class="btn-read-toggle {% if notif.da_doc %}read{% endif %}" 
+                                    data-notification-id="{{ notif.id }}"
+                                    onclick="toggleNotificationRead(event)"
+                                    title="{% if notif.da_doc %}Đánh dấu chưa đọc{% else %}Đánh dấu đã đọc{% endif %}">
+                                {% if notif.da_doc %}
+                                    ✓ Đã đọc
+                                {% else %}
+                                    ◯ Chưa đọc
+                                {% endif %}
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if pagination.pages > 1 %}
+                <div class="pagination">
+                    {% if pagination.has_prev %}
+                        <a href="{{ url_for('pharmacist.all_notifications', page=pagination.prev_num, filter_loai=current_filter or '', search_query=search_query or '') }}">← Trước</a>
+                    {% endif %}
+
+                    {% for page_num in pagination.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num == pagination.page %}
+                                <span class="current">{{ page_num }}</span>
+                            {% else %}
+                                <a href="{{ url_for('pharmacist.all_notifications', page=page_num, filter_loai=current_filter or '', search_query=search_query or '') }}">{{ page_num }}</a>
+                            {% endif %}
+                        {% else %}
+                            <span>...</span>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if pagination.has_next %}
+                        <a href="{{ url_for('pharmacist.all_notifications', page=pagination.next_num, filter_loai=current_filter or '', search_query=search_query or '') }}">Tiếp →</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <h3 class="empty-title">Không có thông báo</h3>
+                <p class="empty-message">Bạn không có thông báo nào. Quay lại sau để kiểm tra!</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Enhanced JavaScript with API call for marking notifications as read -->
+    <script>
+        async function toggleNotificationRead(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const button = event.target;
+            const notificationId = button.getAttribute('data-notification-id');
+            const card = button.closest('.notification-card');
+            
+            try {
+                const response = await fetch(`/pharmacist/notifications/${notificationId}/toggle-read`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Update UI based on response
+                    if (data.da_doc) {
+                        card.classList.remove('unread');
+                        button.textContent = '✓ Đã đọc';
+                        button.classList.add('read');
+                        button.title = 'Đánh dấu chưa đọc';
+                    } else {
+                        card.classList.add('unread');
+                        button.textContent = '◯ Chưa đọc';
+                        button.classList.remove('read');
+                        button.title = 'Đánh dấu đã đọc';
+                    }
+
+                    console.log('[v0] Notification read status toggled successfully');
+                } else {
+                    console.error('[v0] Failed to toggle notification read status:', response.status);
+                    alert('Không thể cập nhật trạng thái thông báo');
+                }
+            } catch (error) {
+                console.error('[v0] Error toggling notification read:', error);
+                alert('Lỗi khi cập nhật thông báo');
+            }
+        }
+    </script>
+</body>
+</html>
+{% endblock %}

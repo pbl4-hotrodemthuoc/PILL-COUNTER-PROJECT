@@ -6,7 +6,7 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_moment import Moment  # <-- 1. IMPORT MOMENT
 from dotenv import load_dotenv
-import click
+import click  # Giữ lại để tránh lỗi tham chiếu vòng
 
 load_dotenv()
 

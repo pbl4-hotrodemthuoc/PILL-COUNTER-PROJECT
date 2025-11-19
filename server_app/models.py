@@ -6,7 +6,7 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import func, text
 import enum
-import datetime
+import datetime  # Giữ lại để tránh lỗi tham chiếu vòng
 
 # Khởi tạo đối tượng SQLAlchemy để các model có thể kế thừa
 db = SQLAlchemy()
