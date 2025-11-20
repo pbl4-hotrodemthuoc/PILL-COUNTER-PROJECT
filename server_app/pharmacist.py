@@ -10,6 +10,7 @@ import datetime
 import uuid
 import base64
 import os
+from sqlalchemy import or_
 
 # --- THƯ VIỆN XỬ LÝ ẢNH & AI ---
 import cv2
@@ -417,15 +418,14 @@ def delete_order(order_id):
             flash(f'Lỗi xóa đơn: {str(e)}', 'danger')
     return redirect(url_for('pharmacist.order_list'))
 
-# --- TRANG ĐẾM THUỐC ---
 @pharmacist.route('/counting')
 @login_required
 def counting_page_no_id():
     """
-    Trang giao diện đếm thuốc chính.
-    Load danh sách các đơn thuốc CHƯA HOÀN THÀNH (Pending/Counting) để dược sĩ chọn.
+    Trang giao diện đếm thuốc.
+    Load danh sách đơn chưa hoàn thành và danh sách thuốc full.
     """
-    # 1. Lấy danh sách đơn thuốc đang chờ
+    # 1. Lấy danh sách đơn thuốc cần xử lý (Pending hoặc Counting)
     pending_orders = DonThuoc.query.filter(
         or_(
             DonThuoc.trang_thai_don == TrangThaiDonEnum.pending,
@@ -442,20 +442,29 @@ def counting_page_no_id():
         drugs=all_drugs
     )
 
-# --- API: Lấy chi tiết của một đơn thuốc ---
+# --- API: Lấy chi tiết thuốc trong một đơn hàng ---
+# --- API: Lấy chi tiết thuốc trong một đơn hàng (BẢN FIX LỖI) ---
 @pharmacist.route('/api/get-order-details/<int:order_id>')
 @login_required
 def get_order_details_api(order_id):
+    print(f">>> API: Đang lấy chi tiết đơn hàng ID={order_id}")
     try:
         order = DonThuoc.query.get_or_404(order_id)
         
         items = []
         for item in order.chi_tiet_don:
-            # Kiểm tra xem thuốc này đã đếm xong chưa
-            is_done = item.trang_thai_khop is not None
+            # Kiểm tra quan hệ database (tránh lỗi nếu thuốc bị xóa)
+            if not item.loai_thuoc_info:
+                print(f"⚠️ Cảnh báo: Chi tiết ID {item.id} thiếu thông tin thuốc")
+                continue
+
+            # Kiểm tra trạng thái hoàn thành
+            is_done = False
+            if item.trang_thai_khop == TrangThaiKhopChiTietEnum.match:
+                is_done = True
             
             items.append({
-                'detail_id': item.id,
+                'detail_id': item.id,  
                 'drug_name': item.loai_thuoc_info.ten_thuoc,
                 'drug_code': item.loai_thuoc_info.ma_thuoc,
                 'req_qty': item.so_luong_yeu_cau,
@@ -463,10 +472,12 @@ def get_order_details_api(order_id):
                 'is_done': is_done
             })
             
+        print(f">>> API: Tìm thấy {len(items)} loại thuốc trong đơn.")
         return jsonify({'success': True, 'items': items})
-    except Exception as e:
-        return jsonify({'success': False, 'msg': str(e)})
 
+    except Exception as e:
+        print(f"❌ API ERROR: {e}")
+        return jsonify({'success': False, 'msg': str(e)})
 # --- API: Lưu kết quả đếm vào CSDL ---
 @pharmacist.route('/api/save-result', methods=['POST'])
 @login_required
@@ -475,20 +486,20 @@ def save_result():
     try:
         mode = data.get('mode') # 'prescription' hoặc 'free'
         
-        # === TRƯỜNG HỢP 1: ĐẾM THEO ĐƠN (LƯU DB) ===
+        # === TRƯỜNG HỢP 1: ĐẾM THEO ĐƠN (LƯU VÀO DB) ===
         if mode == 'prescription':
             detail_id = data.get('detail_id')
             count = int(data.get('count'))
             image_b64 = data.get('image')
 
-            # 1. Tìm chi tiết đơn trong DB
+            # 1. Tìm dòng chi tiết trong DB
             item = ChiTietDonThuoc.query.get(detail_id)
             if not item:
-                return jsonify({'success': False, 'msg': 'Không tìm thấy dòng chi tiết đơn thuốc'})
+                return jsonify({'success': False, 'msg': 'Không tìm thấy chi tiết đơn thuốc'})
 
-            # 2. Cập nhật số lượng thực tế
+            # 2. Cập nhật số lượng đếm được
             item.so_luong_dem_duoc = count
-            item.thoi_gian_nhan_dien_ms = 0 
+            # (Tùy chọn: Tính thời gian, độ tin cậy...)
             
             # 3. Lưu ảnh bằng chứng (Evidence)
             if image_b64 and 'base64' in image_b64:
@@ -496,16 +507,14 @@ def save_result():
                     if "," in image_b64: _, b64_data = image_b64.split(",", 1)
                     else: b64_data = image_b64
                     
-                    # Tên file: count_ID_TIMESTAMP.jpg
-                    filename = f"count_{item.id}_{int(datetime.datetime.now().timestamp())}.jpg"
+                    filename = f"evidence_{item.id}_{int(datetime.datetime.now().timestamp())}.jpg"
                     filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
                     with open(filepath, "wb") as f:
                         f.write(base64.b64decode(b64_data))
                     item.url_hinh_anh = f"/static/uploads/{filename}"
-                except Exception as e: 
-                    print(f"Lỗi lưu ảnh: {e}")
+                except: pass
 
-            # 4. So sánh kết quả (Khớp/Thừa/Thiếu)
+            # 4. So sánh và cập nhật trạng thái Khớp/Lệch
             diff = count - item.so_luong_yeu_cau
             item.chenh_lech = diff
             
@@ -516,19 +525,19 @@ def save_result():
             else:
                 item.trang_thai_khop = TrangThaiKhopChiTietEnum.under
 
-            # 5. Cập nhật trạng thái Đơn Thuốc cha (Nếu cần)
+            # 5. Cập nhật trạng thái Đơn Thuốc cha (Nếu đơn mới bắt đầu -> chuyển sang counting)
             don_thuoc = item.don_thuoc
             if don_thuoc.trang_thai_don == TrangThaiDonEnum.pending:
                 don_thuoc.trang_thai_don = TrangThaiDonEnum.counting
                 don_thuoc.thoi_gian_bat_dau = datetime.datetime.now()
 
             db.session.commit()
-            return jsonify({'success': True, 'msg': f'Đã lưu kết quả: {count} viên (Yêu cầu: {item.so_luong_yeu_cau})'})
+            return jsonify({'success': True, 'msg': f'Đã lưu kết quả: {count}/{item.so_luong_yeu_cau}'})
 
         # === TRƯỜNG HỢP 2: ĐẾM TỰ DO ===
         else:
-            # Đếm chơi thì không lưu DB, chỉ trả về OK
-            return jsonify({'success': True, 'msg': 'Hoàn tất đếm tự do.'})
+            # Đếm tự do không lưu vào đơn thuốc cụ thể, chỉ trả về thành công
+            return jsonify({'success': True, 'msg': 'Đếm tự do hoàn tất.'})
 
     except Exception as e:
         db.session.rollback()

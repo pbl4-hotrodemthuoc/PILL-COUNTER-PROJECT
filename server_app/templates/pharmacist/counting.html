@@ -1,6 +1,6 @@
 {% extends "pharmacist/layout.html" %}
 
-{% block title %}Đếm Thuốc Thông Minh{% endblock %}
+{% block title %}Đếm Thuốc{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-3">
@@ -18,14 +18,14 @@
         <div class="col-lg-4">
             <div class="card h-100 border-0 shadow-sm">
                 <div class="card-header bg-white p-1 border-bottom-0">
-                    <ul class="nav nav-pills nav-fill" id="modeTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active fw-bold" id="prescription-tab" data-bs-toggle="tab" data-bs-target="#prescription-panel" type="button" onclick="setMode('prescription')">
+                    <ul class="nav nav-pills nav-fill" id="modeTabs">
+                        <li class="nav-item">
+                            <button class="nav-link active fw-bold" onclick="setMode('prescription')">
                                 <i class="bi bi-receipt"></i> Theo Đơn
                             </button>
                         </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link fw-bold" id="free-tab" data-bs-toggle="tab" data-bs-target="#free-panel" type="button" onclick="setMode('free')">
+                        <li class="nav-item">
+                            <button class="nav-link fw-bold" onclick="setMode('free')">
                                 <i class="bi bi-hand-index-thumb"></i> Tự Do
                             </button>
                         </li>
@@ -33,53 +33,51 @@
                 </div>
 
                 <div class="card-body d-flex flex-column">
-                    <div class="tab-content mb-3" id="myTabContent">
-                        
-                        <div class="tab-pane fade show active" id="prescription-panel" role="tabpanel">
-                            <div class="mb-3">
-                                <label class="small text-muted fw-bold">1. Chọn đơn hàng:</label>
-                                <select id="orderSelect" class="form-select">
-                                    <option value="">-- Đơn chờ xử lý --</option>
-                                    {% for order in orders %}
-                                    <option value="{{ order.id }}">
-                                        {{ order.ma_don_thuoc }} - {{ order.ten_benh_nhan }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="small text-muted fw-bold">2. Chọn thuốc cần đếm:</label>
-                                <select id="itemSelect" class="form-select" disabled>
-                                    <option value="" data-qty="0">-- Vui lòng chọn đơn trước --</option>
-                                </select>
-                            </div>
-
-                            <div class="alert alert-primary py-2 px-3 mb-0 d-flex justify-content-between">
-                                <span>Yêu cầu:</span>
-                                <strong id="reqQtyDisplay">0 viên</strong>
-                            </div>
+                    
+                    <div id="prescription-panel">
+                        <div class="mb-3">
+                            <label class="small text-muted fw-bold">1. Chọn đơn hàng:</label>
+                            <select id="orderSelect" class="form-select">
+                                <option value="">-- Đơn chờ xử lý --</option>
+                                {% for order in orders %}
+                                <option value="{{ order.id }}">
+                                    {{ order.ma_don_thuoc }} - {{ order.ten_benh_nhan }}
+                                </option>
+                                {% endfor %}
+                            </select>
                         </div>
 
-                        <div class="tab-pane fade" id="free-panel" role="tabpanel">
-                            <div class="mb-3">
-                                <label class="small text-muted fw-bold">Loại thuốc (Tham khảo):</label>
-                                <select id="freeDrugSelect" class="form-select">
-                                    <option value="0">-- Không xác định --</option>
-                                    {% for d in drugs %}
-                                    <option value="{{ d.id }}">{{ d.ten_thuoc }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="small text-muted fw-bold">Nhập số lượng mục tiêu:</label>
-                                <input type="number" id="manualTarget" class="form-control font-monospace fs-5 text-center" value="0">
-                            </div>
+                        <div class="mb-3">
+                            <label class="small text-muted fw-bold">2. Chọn thuốc:</label>
+                            <select id="itemSelect" class="form-select" disabled>
+                                <option value="" data-qty="0">-- Chọn đơn trước --</option>
+                            </select>
+                        </div>
+
+                        <div class="alert alert-primary py-2 px-3 mb-0 d-flex justify-content-between">
+                            <span>Yêu cầu:</span>
+                            <strong id="reqQtyDisplay">0 viên</strong>
+                        </div>
+                    </div>
+
+                    <div id="free-panel" style="display: none;">
+                        <div class="mb-3">
+                            <label class="small text-muted fw-bold">Loại thuốc:</label>
+                            <select id="freeDrugSelect" class="form-select">
+                                <option value="0">-- Chọn thuốc --</option>
+                                {% for d in drugs %}
+                                <option value="{{ d.id }}">{{ d.ten_thuoc }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="small text-muted fw-bold">Nhập số lượng đếm:</label>
+                            <input type="number" id="manualTarget" class="form-control text-center fs-5 font-monospace" value="0">
                         </div>
                     </div>
 
                     <div class="py-4 mt-auto mb-3 rounded-3 bg-light text-center border">
-                        <span class="text-muted small text-uppercase fw-bold">Kết quả thực tế</span>
+                        <span class="text-muted small text-uppercase fw-bold">KẾT QUẢ THỰC TẾ</span>
                         <h1 id="count" class="display-1 fw-bold text-dark my-1">0</h1>
                         <span id="status" class="badge bg-secondary px-3 py-2 rounded-pill">Chờ tín hiệu...</span>
                     </div>
@@ -88,9 +86,8 @@
                         <button id="btnReset" class="btn btn-warning fw-bold shadow-sm">
                             <i class="bi bi-unlock-fill"></i> MỞ KHÓA / ĐẾM LẠI
                         </button>
-
                         <button id="btnSave" class="btn btn-secondary fw-bold py-2" disabled>
-                            CHỜ ỔN ĐỊNH ĐỂ LƯU
+                            CHỜ CHỐT KẾT QUẢ...
                         </button>
                     </div>
                 </div>
@@ -99,13 +96,12 @@
     </div>
 </div>
 {% endblock %}
-
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
     const socket = io();
     
-    // UI Elements
+    // --- UI ELEMENTS ---
     const img = document.getElementById('serverImage');
     const countEl = document.getElementById('count');
     const statusEl = document.getElementById('status');
@@ -118,125 +114,155 @@
     const reqQtyDisplay = document.getElementById('reqQtyDisplay');
     const manualTarget = document.getElementById('manualTarget');
     
-    let currentMode = 'prescription'; 
+    const presPanel = document.getElementById('prescription-panel');
+    const freePanel = document.getElementById('free-panel');
+    
+    let currentMode = 'prescription';
     let currentImage = "";
 
-    // --- HÀM CẬP NHẬT TRẠNG THÁI NÚT BẤM ---
-    function setUIState(isLocked) {
-        if (isLocked) {
-            // Đã chốt
-            btnSave.disabled = false;
-            btnSave.className = "btn btn-success w-100 py-2 fw-bold shadow";
-            btnSave.innerHTML = '<i class="bi bi-check-lg"></i> LƯU VÀO CSDL';
-            btnReset.className = "btn btn-warning fw-bold shadow-sm";
-            img.style.border = "5px solid #198754";
-        } else {
-            // Đang mở khóa / Đang đếm
-            btnSave.disabled = true;
-            btnSave.className = "btn btn-secondary w-100 py-2 fw-bold";
-            btnSave.innerText = "CHỜ ỔN ĐỊNH...";
-            
-            statusEl.className = "badge bg-warning text-dark px-3 py-2 rounded-pill";
-            statusEl.innerText = "Đang đếm lại...";
-            
-            img.style.border = "none";
-        }
-    }
-
-    // --- 1. XỬ LÝ NÚT RESET (QUAN TRỌNG NHẤT) ---
-    btnReset.addEventListener('click', () => {
-        console.log("Bấm nút Reset");
-        // 1. Gửi lệnh lên server
-        socket.emit('reset_counting');
-        
-        // 2. Cập nhật giao diện NGAY LẬP TỨC (Không chờ server)
-        setUIState(false); 
-        countEl.style.color = "#000"; // Đổi màu số về đen
-    });
-
-    // --- 2. LẮNG NGHE PHẢN HỒI NHANH TỪ SERVER ---
-    socket.on('count_status_update', (data) => {
-        // Server xác nhận đã mở khóa
-        if (data.is_locked === false) {
-            setUIState(false);
-        }
-    });
-
-    // --- 3. NHẬN KẾT QUẢ HÌNH ẢNH TỪ AI ---
-    socket.on('ai_result', (data) => {
-        waiting.style.display = 'none';
-        img.style.display = 'block';
-        img.src = data.processed_image;
-        currentImage = data.processed_image;
-        
-        countEl.innerText = data.count;
-        
-        // Chỉ cập nhật trạng thái nếu server báo Locked, 
-        // hoặc nếu Server đang đếm (is_locked=false)
-        if(data.is_locked) {
-            statusEl.className = `badge bg-${data.status_color} px-3 py-2 rounded-pill`;
-            statusEl.innerText = "ĐÃ CHỐT: " + data.status_text;
-            setUIState(true);
-        } else {
-            // Đang đếm
-            statusEl.innerText = data.status_text;
-            // Đảm bảo nút Save bị khóa
-            if (!btnSave.disabled) setUIState(false); 
-        }
-    });
-
-    // --- CÁC PHẦN CÒN LẠI (CHUYỂN TAB, LƯU, CHỌN ĐƠN) GIỮ NGUYÊN ---
+    // --- 1. CHUYỂN TAB (THEO ĐƠN / TỰ DO) ---
     window.setMode = function(mode) {
         currentMode = mode;
-        socket.emit('reset_counting'); 
+        socket.emit('reset_counting');
         countEl.innerText = "0";
         setUIState(false);
-        
+
         if(mode === 'prescription') {
-            const opt = itemSelect.options[itemSelect.selectedIndex];
-            if(opt && opt.value) socket.emit('update_target', { target: opt.dataset.qty });
+            presPanel.style.display = 'block';
+            freePanel.style.display = 'none';
+            // Cập nhật lại target từ dropdown đơn thuốc
+            triggerItemChange();
         } else {
+            presPanel.style.display = 'none';
+            freePanel.style.display = 'block';
+            // Cập nhật target từ ô nhập tay
             const target = parseInt(manualTarget.value) || 0;
             socket.emit('update_target', { target: target });
         }
     };
 
+    // --- 2. XỬ LÝ CHỌN ĐƠN HÀNG (Load thuốc từ API) ---
     orderSelect.addEventListener('change', function() {
         const orderId = this.value;
-        itemSelect.innerHTML = '<option>Đang tải...</option>';
+        
+        // Reset giao diện
+        itemSelect.innerHTML = '<option>Đang tải dữ liệu...</option>';
         itemSelect.disabled = true;
-        if (!orderId) return;
+        reqQtyDisplay.innerText = "0 viên";
+        
+        if (!orderId) {
+            itemSelect.innerHTML = '<option value="">-- Chọn đơn trước --</option>';
+            return;
+        }
+
+        console.log("Calling API for Order:", orderId);
 
         fetch(`/pharmacist/api/get-order-details/${orderId}`)
             .then(res => res.json())
             .then(data => {
-                if(data.success) {
-                    itemSelect.innerHTML = '<option value="" data-qty="0">-- Chọn thuốc --</option>';
+                console.log("API Response:", data); // Xem log trên trình duyệt (F12)
+                
+                if(data.success && data.items.length > 0) {
+                    itemSelect.innerHTML = ''; // Xóa hết option cũ
+                    
+                    // Thêm option mặc định
+                    const defaultOpt = document.createElement('option');
+                    defaultOpt.text = "-- Chọn thuốc cần đếm --";
+                    defaultOpt.value = "";
+                    itemSelect.appendChild(defaultOpt);
+
                     data.items.forEach(item => {
                         const opt = document.createElement('option');
                         opt.value = item.detail_id;
                         opt.dataset.qty = item.req_qty;
+                        
                         let label = `${item.drug_name} (Cần: ${item.req_qty})`;
-                        if(item.is_done) { label = `✅ ${label}`; opt.disabled = true; }
+                        if(item.is_done) {
+                            label = `✅ ${label} - Xong`;
+                            opt.style.color = "green";
+                            // Có thể disable hoặc để cho đếm lại tùy ý
+                            // opt.disabled = true; 
+                        }
                         opt.innerText = label;
                         itemSelect.appendChild(opt);
                     });
-                    itemSelect.disabled = false;
+
+                    itemSelect.disabled = false; // Mở khóa dropdown
+                    
+                    // [TỰ ĐỘNG CHỌN] Chọn thuốc đầu tiên chưa xong (nếu có)
+                    const firstPending = Array.from(itemSelect.options).find(o => o.value && !o.disabled);
+                    if(firstPending) {
+                        itemSelect.value = firstPending.value;
+                        triggerItemChange(); // Kích hoạt logic cập nhật số lượng
+                    }
+
+                } else {
+                    itemSelect.innerHTML = '<option>Không có thuốc trong đơn này</option>';
                 }
+            })
+            .catch(err => {
+                console.error("Lỗi tải đơn:", err);
+                itemSelect.innerHTML = '<option>Lỗi kết nối!</option>';
             });
     });
 
-    itemSelect.addEventListener('change', function() {
-        const opt = this.options[this.selectedIndex];
-        if(opt.value) {
-            reqQtyDisplay.innerText = `${opt.dataset.qty} viên`;
-            socket.emit('update_target', { target: opt.dataset.qty });
-            socket.emit('reset_counting'); // Tự động mở khóa khi chọn thuốc mới
+    // --- 3. XỬ LÝ KHI CHỌN THUỐC ---
+    itemSelect.addEventListener('change', triggerItemChange);
+
+    function triggerItemChange() {
+        const opt = itemSelect.options[itemSelect.selectedIndex];
+        if(opt && opt.value) {
+            const qty = opt.dataset.qty;
+            reqQtyDisplay.innerText = `${qty} viên`;
+            
+            // Gửi số lượng mục tiêu cho AI Server
+            socket.emit('update_target', { target: qty });
+            socket.emit('reset_counting'); // Mở khóa đếm mới
+        } else {
+            reqQtyDisplay.innerText = "0 viên";
+        }
+    }
+
+    // --- 4. CÁC LOGIC KHÁC (GIỮ NGUYÊN) ---
+    manualTarget.addEventListener('input', function() {
+        if(currentMode === 'free') socket.emit('update_target', { target: parseInt(this.value) || 0 });
+    });
+
+    socket.on('ai_result', (data) => {
+        waiting.style.display = 'none';
+        img.style.display = 'block';
+        img.src = data.processed_image;
+        currentImage = data.processed_image;
+        countEl.innerText = data.count;
+
+        if(data.is_locked) {
+            statusEl.className = `badge bg-${data.status_color} px-3 py-2 rounded-pill`;
+            statusEl.innerText = "ĐÃ CHỐT: " + data.status_text;
+            setUIState(true);
+        } else {
+            statusEl.innerText = data.status_text;
+            statusEl.className = "badge bg-warning text-dark px-3 py-2 rounded-pill";
+            if(!btnSave.disabled) setUIState(false);
         }
     });
 
-    manualTarget.addEventListener('input', function() {
-        if(currentMode === 'free') socket.emit('update_target', { target: parseInt(this.value) || 0 });
+    function setUIState(isLocked) {
+        if(isLocked) {
+            btnSave.disabled = false;
+            btnSave.className = "btn btn-success w-100 py-2 fw-bold shadow";
+            btnSave.innerHTML = '<i class="bi bi-check-lg"></i> LƯU KẾT QUẢ';
+            img.style.border = "5px solid #198754";
+        } else {
+            btnSave.disabled = true;
+            btnSave.className = "btn btn-secondary w-100 py-2 fw-bold";
+            btnSave.innerText = "CHỜ ỔN ĐỊNH...";
+            img.style.border = "none";
+        }
+    }
+
+    btnReset.addEventListener('click', () => {
+        socket.emit('reset_counting');
+        setUIState(false);
     });
 
     btnSave.addEventListener('click', function() {
@@ -258,17 +284,16 @@
             .then(data => {
                 if(data.success) {
                     alert("✅ " + data.msg);
-                    orderSelect.dispatchEvent(new Event('change'));
+                    // Trick: Trigger lại change event để reload danh sách thuốc (cập nhật dấu tích xanh)
+                    orderSelect.dispatchEvent(new Event('change')); 
                     socket.emit('reset_counting');
-                    setUIState(false);
                 } else {
-                    alert("❌ " + data.msg);
+                    alert("❌ Lỗi: " + data.msg);
                 }
             });
         } else {
             alert("Đếm tự do: Xong!");
             socket.emit('reset_counting');
-            setUIState(false);
         }
     });
 </script>
