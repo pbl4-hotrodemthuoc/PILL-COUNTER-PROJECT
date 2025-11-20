@@ -1,0 +1,120 @@
+{% extends 'admin/layout.html' %}
+
+{% block title %}Quản lý Người dùng{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Quản lý Người dùng</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Tổng quan</a></li>
+        <li class="breadcrumb-item active">Người dùng</li>
+    </ol>
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>
+                <i class="fas fa-table me-1"></i>
+                Danh sách Người dùng
+            </span>
+            <a href="{{ url_for('admin.add_user') }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus"></i> Thêm người dùng mới
+            </a>
+        </div>
+        <div class="card-body">
+            <table id="datatablesSimple" class="table table-striped table-bordered">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Họ tên</th>
+                        <th>Tên đăng nhập</th>
+                        <th>Email</th>
+                        <th>Vai trò</th>
+                        <th>Trạng thái</th>
+                        <th class="text-center">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.id }}</td>
+                        <td>{{ user.ho_ten }}</td>
+                        <td>{{ user.ten_dang_nhap }}</td>
+                        <td>{{ user.email }}</td>
+                        <td>
+                            {% if user.vai_tro.name == 'admin' %}
+                                <span class="badge bg-danger">Quản trị viên</span>
+                            {% elif user.vai_tro.name == 'pharmacist' %}
+                                <span class="badge bg-info">Dược sĩ</span>
+                            {% else %}
+                                {{ user.vai_tro.name }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.dang_hoat_dong %}
+                                <span class="badge bg-success">Đang hoạt động</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Bị khóa</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="btn btn-warning btn-sm" title="Sửa">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteUserModal"
+                                    data-user-id="{{ user.id }}" data-user-name="{{ user.ho_ten }}" title="Xóa">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal xác nhận xóa -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteUserModalLabel">Xác nhận Xóa Người dùng</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Bạn có chắc chắn muốn xóa người dùng <strong id="userNameToDelete"></strong>? Hành động này không thể hoàn tác.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        <form id="deleteForm" method="POST" action="">
+            <button type="submit" class="btn btn-danger">Xóa</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Đoạn script này xử lý việc hiển thị thông tin đúng trong modal xác nhận xóa
+document.addEventListener('DOMContentLoaded', function () {
+    var deleteUserModal = document.getElementById('deleteUserModal');
+    deleteUserModal.addEventListener('show.bs.modal', function (event) {
+        // Nút đã kích hoạt modal
+        var button = event.relatedTarget;
+        
+        // Lấy thông tin từ data-* attributes
+        var userId = button.getAttribute('data-user-id');
+        var userName = button.getAttribute('data-user-name');
+        
+        // Cập nhật nội dung của modal
+        var modalBodyName = deleteUserModal.querySelector('#userNameToDelete');
+        var deleteForm = deleteUserModal.querySelector('#deleteForm');
+        
+        modalBodyName.textContent = userName;
+        // Cập nhật action của form để gửi đúng ID người dùng cần xóa
+        deleteForm.action = '/admin/users/delete/' + userId;
+    });
+});
+</script>
+{% endblock %}

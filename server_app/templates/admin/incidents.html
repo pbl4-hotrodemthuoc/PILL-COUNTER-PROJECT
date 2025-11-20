@@ -1,0 +1,82 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Quản Lý Sự Cố{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <!-- Page Heading -->
+    <h1 class="h3 mb-2 text-gray-800">Quản Lý Sự Cố</h1>
+    <p class="mb-4">Nơi tiếp nhận và xử lý các báo cáo sự cố từ dược sĩ.</p>
+
+    <!-- Incidents Table Card -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Danh sách Sự cố</h6>
+        </div>
+        <div class="card-body">
+            <!-- Filter Tabs -->
+            <ul class="nav nav-tabs mb-3">
+                <li class="nav-item">
+                    <a class="nav-link {% if current_filter == 'pending' %}active{% endif %}" href="{{ url_for('admin.incidents', status='pending') }}">Chờ xử lý</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if current_filter == 'reviewing' %}active{% endif %}" href="{{ url_for('admin.incidents', status='reviewing') }}">Đang xem xét</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if current_filter == 'resolved' %}active{% endif %}" href="{{ url_for('admin.incidents', status='resolved') }}">Đã giải quyết</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if current_filter == 'all' %}active{% endif %}" href="{{ url_for('admin.incidents', status='all') }}">Tất cả</a>
+                </li>
+            </ul>
+
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Ngày Báo Cáo</th>
+                            <th>Người Báo Cáo</th>
+                            <th>Loại Sự Cố</th>
+                            <th>Trạng Thái</th>
+                            <th>Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for incident in incidents %}
+                        <tr>
+                            <td>#{{ incident.id }}</td>
+                            <td>{{ incident.ngay_tao.strftime('%H:%M %d-%m-%Y') }}</td>
+                            <td>{{ incident.nguoi_bao_cao.ho_ten }}</td>
+                            <td>{{ incident.loai_su_co.value }}</td>
+                            <td>
+                                {% if incident.trang_thai.name == 'pending' %}
+                                    <span class="badge badge-warning">{{ incident.trang_thai.value }}</span>
+                                {% elif incident.trang_thai.name == 'reviewing' %}
+                                    <span class="badge badge-info">{{ incident.trang_thai.value }}</span>
+                                {% elif incident.trang_thai.name == 'resolved' %}
+                                    <span class="badge badge-success">{{ incident.trang_thai.value }}</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{{ incident.trang_thai.value }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('admin.incident_detail', incident_id=incident.id) }}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-eye"></i> Xem Chi Tiết
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center">Không có sự cố nào trong mục này.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

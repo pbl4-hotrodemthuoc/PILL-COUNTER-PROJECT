@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}Đăng nhập hệ thống{% endblock %}
+
+{% block body_content %}
+<style>
+    /* --- CẤU HÌNH CHUNG --- */
+    :root {
+        --primary-color: #0d6efd;
+        --primary-gradient: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%);
+        --input-bg: #f8f9fa;
+        --input-border: #e9ecef;
+        --transition-speed: 0.3s;
+    }
+
+    /* Khóa cứng chiều cao màn hình, ẩn thanh cuộn body */
+    .auth-container {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        background-color: #ffffff;
+        overflow: hidden; 
+    }
+    
+    /* --- CỘT TRÁI: BRANDING (FIXED 40%) --- */
+    .auth-branding {
+        flex: 0 0 40%;      /* KHÓA CỨNG 40% */
+        max-width: 40%;
+        height: 100%;       /* Full chiều cao */
+        background: var(--primary-gradient);
+        position: relative;
+        z-index: 10;
+        overflow-y: auto;   /* Cho phép cuộn nếu nội dung dài */
+    }
+
+    /* Ẩn thanh cuộn cho đẹp (Chrome/Safari) */
+    .auth-branding::-webkit-scrollbar { width: 0; background: transparent; }
+
+    .branding-pattern {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background-image: radial-gradient(rgba(255, 255, 255, 0.1) 2px, transparent 2px);
+        background-size: 30px 30px;
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
+    /* Wrapper nội dung bên trái */
+    .branding-content {
+        min-height: 100%; /* Đảm bảo luôn full chiều cao */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 3rem 2rem; /* Padding an toàn */
+        color: white;
+    }
+
+    /* --- CỘT PHẢI: FORM (FIXED 60%) --- */
+    .auth-form-wrapper {
+        flex: 0 0 60%;      /* KHÓA CỨNG 60% */
+        max-width: 60%;
+        height: 100%;       /* Full chiều cao */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-color: #ffffff;
+        position: relative;
+        overflow-y: auto;   /* Cho phép cuộn form */
+    }
+
+    /* Wrapper để căn giữa form */
+    .form-scroller {
+        width: 100%;
+        min-height: 100%;   /* Quan trọng để căn giữa dọc */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem 2rem;
+    }
+
+    /* Card ảo chứa form */
+    .login-card {
+        width: 100%;
+        max-width: 480px;
+        padding: 2.5rem;
+        border-radius: 1.5rem;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.06); 
+        background: white;
+        border: 1px solid rgba(0,0,0,0.02);
+        animation: fadeInUp 0.6s ease-out;
+    }
+    
+    /* --- INPUT STYLES --- */
+    .custom-input-group {
+        background-color: var(--input-bg);
+        border: 1px solid var(--input-border);
+        border-radius: 0.75rem;
+        display: flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        transition: all var(--transition-speed);
+        margin-bottom: 1.25rem;
+    }
+
+    .custom-input-group:focus-within {
+        border-color: var(--primary-color);
+        background-color: #fff;
+        box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.1);
+    }
+
+    .input-icon {
+        color: #adb5bd; font-size: 1.1rem; padding-right: 0.75rem; transition: color 0.3s;
+    }
+    .custom-input-group:focus-within .input-icon { color: var(--primary-color); }
+
+    .form-control-clean {
+        border: none; background: transparent; width: 100%; padding: 0.75rem 0;
+        font-size: 1rem; color: #495057; outline: none;
+    }
+    .form-control-clean::placeholder { color: #adb5bd; font-weight: 400; }
+
+    /* --- BUTTONS --- */
+    .btn-login {
+        background: var(--primary-gradient);
+        border: none; border-radius: 0.75rem; padding: 0.9rem;
+        font-size: 1.1rem; font-weight: 600; letter-spacing: 0.5px; color: white;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(13, 110, 253, 0.3);
+        color: white;
+    }
+
+    .btn-google {
+        border: 1px solid var(--input-border); border-radius: 0.75rem; padding: 0.8rem;
+        font-weight: 500; color: #495057; background: white; transition: all 0.2s;
+    }
+    .btn-google:hover { background-color: #f8f9fa; border-color: #dee2e6; }
+
+    /* Hover effect cho list tính năng */
+    .transition-hover { transition: background 0.3s; border-radius: 8px; cursor: default; }
+    .transition-hover:hover { background: rgba(255,255,255,0.15) !important; }
+
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* --- RESPONSIVE --- */
+    @media (max-width: 992px) {
+        .auth-container { flex-direction: column; overflow-y: auto; }
+        .auth-branding { flex: none; width: 100%; max-width: 100%; height: auto; padding: 0; }
+        .branding-content { padding: 3rem 1.5rem; }
+        .auth-form-wrapper { flex: none; width: 100%; max-width: 100%; height: auto; overflow: visible; }
+        .login-card { box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin: 0; }
+    }
+    .auth-branding h1 {
+    color: white;
+}
+</style>
+
+<div class="auth-container">
+    <div class="auth-branding">
+        <div class="branding-pattern"></div>
+        
+        <div class="branding-content">
+            
+            <div class="text-center mb-4">
+                <div style="background: rgba(255,255,255,0.2); width: 110px; height: 110px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; box-shadow: 0 8px 30px rgba(0,0,0,0.2); backdrop-filter: blur(10px); border: 2px solid rgba(255,255,255,0.3);">
+                    <i class="fa-solid fa-pills" style="font-size: 3.5rem; color: white;"></i>
+                </div>
+
+                <h1 class="fw-bold mb-2" style="font-size: 2.5rem; letter-spacing: -0.5px;">PharmaSys</h1>
+                <p class="opacity-90 mb-2 fw-light" style="font-size: 1.1rem; color: white;">Giải pháp Dược phẩm Thông minh 4.0</p>
+                
+                <div class="d-flex gap-2 justify-content-center mt-3">
+                    <span class="badge bg-white text-primary bg-opacity-10 border border-white border-opacity-25 px-3 py-2 rounded-pill">
+                        <i class="fa-solid fa-microchip me-1"></i> AI Powered
+                    </span>
+                    <span class="badge bg-white text-primary bg-opacity-10 border border-white border-opacity-25 px-3 py-2 rounded-pill">
+                        <i class="fa-solid fa-bolt me-1"></i> Real-time
+                    </span>
+                </div>
+            </div>
+
+            <div class="w-100 px-2 mt-2" style="max-width: 400px;">
+                <div class="d-flex flex-column gap-3">
+                    
+                    <div class="d-flex align-items-center p-3 transition-hover" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1);">
+                        <div class="d-flex align-items-center justify-content-center rounded-circle bg-white text-primary" style="width: 40px; height: 40px; flex-shrink: 0;">
+                            <i class="fa-solid fa-camera-rotate"></i>
+                        </div>
+                        <div class="ms-3 text-start">
+                            <h6 class="mb-0 fw-bold text-white" style="font-size: 0.95rem;">Đếm thuốc tự động</h6>
+                            <small class="text-white opacity-75" style="font-size: 0.8rem;">Computer Vision chính xác 99%</small>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center p-3 transition-hover" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1);">
+                        <div class="d-flex align-items-center justify-content-center rounded-circle bg-white text-primary" style="width: 40px; height: 40px; flex-shrink: 0;">
+                            <i class="fa-solid fa-boxes-stacked"></i>
+                        </div>
+                        <div class="ms-3 text-start">
+                            <h6 class="mb-0 fw-bold text-white" style="font-size: 0.95rem;">Quản lý kho thông minh</h6>
+                            <small class="text-white opacity-75" style="font-size: 0.8rem;">Cảnh báo tồn kho tức thời</small>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center p-3 transition-hover" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1);">
+                        <div class="d-flex align-items-center justify-content-center rounded-circle bg-white text-primary" style="width: 40px; height: 40px; flex-shrink: 0;">
+                            <i class="fa-solid fa-file-contract"></i>
+                        </div>
+                        <div class="ms-3 text-start">
+                            <h6 class="mb-0 fw-bold text-white" style="font-size: 0.95rem;">Đối chiếu đơn thuốc</h6>
+                            <small class="text-white opacity-75" style="font-size: 0.8rem;">Phát hiện sai lệch tự động</small>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="mt-5 text-center opacity-75 small border-top border-white border-opacity-25 pt-4 w-100">
+                <div class="row">
+                    <div class="col-4 border-end border-white border-opacity-25">
+                        <div class="fw-bold fs-6">24/7</div>
+                        <div style="font-size: 0.75rem;">Hỗ trợ</div>
+                    </div>
+                    <div class="col-4 border-end border-white border-opacity-25">
+                        <div class="fw-bold fs-6">100%</div>
+                        <div style="font-size: 0.75rem;">Bảo mật</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="fw-bold fs-6">IoT</div>
+                        <div style="font-size: 0.75rem;">Kết nối</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="auth-form-wrapper">
+        <div class="form-scroller">
+            <div class="login-card">
+                <div class="text-center mb-4">
+                    <h3 class="fw-bold text-dark">Chào mừng trở lại!</h3>
+                    <p class="text-muted">Đăng nhập để truy cập hệ thống</p>
+                </div>
+
+                {% include '_flash_messages.html' %}
+
+                <form method="POST" action="{{ url_for('auth.login') }}" class="needs-validation" novalidate>
+                    
+                    <div class="mb-1">
+                        <label class="form-label fw-medium small text-secondary ps-1">Email</label>
+                        <div class="custom-input-group">
+                            <i class="fa-regular fa-envelope input-icon"></i>
+                            <input type="email" class="form-control-clean" id="email" name="email" placeholder="name@example.com" required autocomplete="email">
+                        </div>
+                        <div class="invalid-feedback">Vui lòng nhập email.</div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-medium small text-secondary ps-1">Mật khẩu</label>
+                        <div class="custom-input-group">
+                            <i class="fa-solid fa-lock input-icon"></i>
+                            <input type="password" class="form-control-clean" id="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+                            <i class="fa-regular fa-eye input-icon" id="toggleIcon" style="cursor: pointer; margin-left: auto; padding-right: 0;" onclick="togglePassword()"></i>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="form-check ps-0 d-flex align-items-center">
+                            <input type="checkbox" class="form-check-input mt-0 ms-0" id="remember" name="remember" style="cursor: pointer; width: 1.1em; height: 1.1em;">
+                            <label class="form-check-label text-muted small ms-2" for="remember" style="cursor: pointer;">Ghi nhớ tôi</label>
+                        </div>
+                        <a href="#" class="small text-primary fw-bold text-decoration-none">Quên mật khẩu?</a>
+                    </div>
+
+                    <button type="submit" class="btn btn-login w-100 shadow mb-4">
+                        <i class="fa-solid fa-right-to-bracket me-2"></i> Đăng nhập
+                    </button>
+                    
+                    <div class="d-flex align-items-center mb-4">
+                        <hr class="flex-grow-1 m-0 text-muted opacity-25">
+                        <span class="px-3 text-muted small">HOẶC</span>
+                        <hr class="flex-grow-1 m-0 text-muted opacity-25">
+                    </div>
+
+                    <button type="button" class="btn btn-google w-100 d-flex align-items-center justify-content-center gap-2">
+                        <i class="fa-brands fa-google text-danger"></i> 
+                        <span>Đăng nhập với Google</span>
+                    </button>
+
+                    <div class="text-center mt-4">
+                        <p class="text-muted small">Chưa có tài khoản? <a href="{{ url_for('auth.signup') }}" class="text-primary fw-bold text-decoration-none">Đăng ký ngay</a></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. Form Validation
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms).forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+    })()
+
+    // 2. Toggle Password Visibility
+    function togglePassword() {
+        const passwordInput = document.getElementById('password');
+        const toggleIcon = document.getElementById('toggleIcon');
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            toggleIcon.classList.replace('fa-eye', 'fa-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            toggleIcon.classList.replace('fa-eye-slash', 'fa-eye');
+        }
+    }
+</script>
+{% endblock %}

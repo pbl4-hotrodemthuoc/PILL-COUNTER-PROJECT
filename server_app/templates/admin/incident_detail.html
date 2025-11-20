@@ -1,0 +1,87 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Chi Tiết Sự Cố #{{ incident.id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <!-- Page Heading -->
+    <h1 class="h3 mb-4 text-gray-800">Chi Tiết Sự Cố #{{ incident.id }}</h1>
+
+    <div class="row">
+
+        <!-- Left Column: Incident Information -->
+        <div class="col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Thông Tin Sự Cố</h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-4">Người báo cáo:</dt>
+                        <dd class="col-sm-8">{{ incident.nguoi_bao_cao.ho_ten }}</dd>
+
+                        <dt class="col-sm-4">Thời gian:</dt>
+                        <dd class="col-sm-8">{{ incident.ngay_tao.strftime('%H:%M %d-%m-%Y') }}</dd>
+
+                        <dt class="col-sm-4">Loại sự cố:</dt>
+                        <dd class="col-sm-8">{{ incident.loai_su_co.value }}</dd>
+
+                        <dt class="col-sm-4">Đơn thuốc liên quan:</dt>
+                        <dd class="col-sm-8">
+                            {% if incident.don_thuoc %}
+                                <a href="#">#{{ incident.don_thuoc.ma_don_thuoc }}</a>
+                            {% else %}
+                                Không có
+                            {% endif %}
+                        </dd>
+                    </dl>
+                    <hr>
+                    <h5>Mô tả của Dược sĩ</h5>
+                    <p class="text-gray-800">{{ incident.mo_ta | replace('\n', '<br>') | safe }}</p>
+
+                    {% if incident.url_hinh_anh %}
+                        <hr>
+                        <h5>Hình ảnh đính kèm</h5>
+                        <img src="{{ incident.url_hinh_anh }}" class="img-fluid rounded" alt="Ảnh sự cố">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Admin Actions -->
+        <div class="col-lg-5">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-success">Xử Lý Sự Cố</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="form-group">
+                            <label for="trang_thai"><strong>Thay đổi trạng thái</strong></label>
+                            <select class="form-control" id="trang_thai" name="trang_thai">
+                                {% for status in TrangThaiSuCoEnum %}
+                                <option value="{{ status.name }}" {% if status == incident.trang_thai %}selected{% endif %}>
+                                    {{ status.value }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="phan_hoi_admin"><strong>Phản hồi của Admin</strong></label>
+                            <textarea class="form-control" id="phan_hoi_admin" name="phan_hoi_admin" rows="6" placeholder="Nhập nội dung phản hồi cho dược sĩ...">{{ incident.phan_hoi_admin or '' }}</textarea>
+                        </div>
+                        <hr>
+                        <button type="submit" class="btn btn-primary btn-block">
+                            <i class="fas fa-save mr-2"></i>Lưu Thay Đổi
+                        </button>
+                        <a href="{{ url_for('admin.incidents') }}" class="btn btn-secondary btn-block mt-2">
+                            Quay lại danh sách
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,345 @@
+{% extends "pharmacist/layout.html" %}
+
+{% block title %}Tạo Đơn Thuốc Mới{% endblock %}
+
+{% block content %}
+<style>
+    /* --- CSS CHO TRANG TẠO ĐƠN --- */
+    .drug-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid var(--border-color);
+    }
+    .drug-card:hover {
+        border-color: var(--primary-blue);
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-md);
+    }
+    .drug-card.out-of-stock {
+        opacity: 0.6;
+        pointer-events: none;
+        background-color: var(--gray-100);
+    }
+    
+    .cart-item {
+        background-color: white;
+        border-bottom: 1px dashed var(--border-color);
+        padding: 10px 0;
+        animation: slideInRight 0.3s ease;
+    }
+    .cart-scroll {
+        max-height: 400px;
+        overflow-y: auto;
+        padding-right: 5px;
+    }
+    /* Thanh cuộn đẹp hơn */
+    .cart-scroll::-webkit-scrollbar { width: 6px; }
+    .cart-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+    .cart-scroll::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+    .qty-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+    }
+</style>
+
+<div class="row g-4 h-100">
+    <div class="col-lg-7 col-xl-8">
+        <div class="card shadow-sm h-100 border-0">
+            <div class="card-header bg-white border-bottom py-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center">
+                        <a href="{{ url_for('pharmacist.order_list') }}" class="btn btn-light btn-sm me-2 rounded-circle shadow-sm text-primary" title="Quay lại danh sách đơn" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-arrow-left fw-bold"></i>
+                        </a>
+                        <h5 class="mb-0 text-primary"><i class="bi bi-grid-fill me-2"></i>Kho Thuốc</h5>
+                    </div>
+                    <div class="text-muted small">Hiển thị kết quả tìm kiếm</div>
+                </div>
+                
+                <div class="row g-2">
+                    <div class="col-md-8">
+                        <div class="search-container w-100">
+                            <i class="bi bi-search search-icon"></i>
+                            <input type="text" id="drugSearchInput" class="search-input form-control" placeholder="Tìm tên thuốc, mã thuốc (VD: Panadol)...">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" id="categoryFilter">
+                            <option value="all">Tất cả danh mục</option>
+                            <option value="antibiotic">Kháng sinh</option>
+                            <option value="painkiller">Giảm đau</option>
+                            <option value="vitamin">Vitamin & Khoáng chất</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body bg-light">
+                <div id="drugGrid" class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+                    <div class="col-12 text-center py-5 text-muted">
+                        <i class="bi bi-search display-4 mb-3 d-block opacity-50"></i>
+                        <p>Đang tải danh sách thuốc...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5 col-xl-4">
+        <div class="card shadow-lg border-0 h-100 position-sticky" style="top: 1rem;">
+            <div class="card-header bg-primary text-white py-3">
+                <h5 class="mb-0"><i class="bi bi-cart3 me-2"></i>Đơn Thuốc Mới</h5>
+                <span class="badge bg-white text-primary badge-pill" id="cartItemCount">0 loại</span>
+            </div>
+
+            <form method="POST" action="{{ url_for('pharmacist.new_order') }}" id="createOrderForm" class="d-flex flex-column h-100">
+                <div class="card-body d-flex flex-column p-0">
+                    
+                    <div class="p-3 bg-light border-bottom">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="bi bi-person-circle text-primary"></i></span>
+                            <input type="text" name="patient_name" class="form-control border-start-0 ps-0" placeholder="Tên bệnh nhân (Khách lẻ)...">
+                        </div>
+                    </div>
+
+                    <div class="cart-scroll flex-grow-1 p-3" id="cartItemsArea">
+                        <div id="emptyCartMsg" class="text-center py-5 text-muted">
+                            <img src="https://cdn-icons-png.flaticon.com/512/2038/2038854.png" width="64" class="mb-3 opacity-50" alt="Empty">
+                            <p class="mb-0">Chưa có thuốc nào được chọn</p>
+                            <small>Vui lòng chọn thuốc từ danh sách bên trái</small>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-gray-50 border-top mt-auto">
+                        <div class="mb-3">
+                            <textarea name="note" class="form-control form-control-sm" rows="2" placeholder="Ghi chú cho đơn thuốc..."></textarea>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="text-muted">Tổng số viên:</span>
+                            <strong class="fs-5 text-primary" id="totalPills">0</strong>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg fw-bold shadow-sm">
+                                <i class="bi bi-check-circle-fill me-2"></i> TẠO ĐƠN & ĐẾM
+                            </button>
+                            <a href="{{ url_for('pharmacist.order_list') }}" class="btn btn-outline-secondary btn-sm">
+                                Hủy bỏ
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- CONFIG & STATE ---
+    const state = {
+        cart: [], // Mảng chứa {id, name, code, qty}
+        searchResults: [] // Mảng chứa kết quả tìm kiếm từ API
+    };
+
+    // --- DOM ELEMENTS ---
+    const searchInput = document.getElementById('drugSearchInput');
+    const drugGrid = document.getElementById('drugGrid');
+    const cartItemsArea = document.getElementById('cartItemsArea');
+    const emptyCartMsg = document.getElementById('emptyCartMsg');
+    const cartItemCount = document.getElementById('cartItemCount');
+    const totalPillsEl = document.getElementById('totalPills');
+    const form = document.getElementById('createOrderForm');
+
+    // --- 1. SEARCH FUNCTION (Backend API) ---
+    // Tự động tải danh sách thuốc khi vào trang
+    document.addEventListener('DOMContentLoaded', () => {
+        searchDrugs(''); 
+    });
+
+    let debounceTimer;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => searchDrugs(this.value), 300);
+    });
+
+    async function searchDrugs(query) {
+        const url = `/pharmacist/api/search-drugs?q=${query}`;
+        
+        try {
+            const response = await fetch(url);
+            const drugs = await response.json();
+            state.searchResults = drugs;
+            renderDrugGrid(drugs);
+        } catch (err) {
+            console.error('Error fetching drugs:', err);
+            drugGrid.innerHTML = `<div class="col-12 text-center text-danger py-5">Lỗi tải dữ liệu thuốc.</div>`;
+        }
+    }
+
+    // --- 2. RENDER CATALOG (LEFT SIDE) ---
+    function renderDrugGrid(drugs) {
+        drugGrid.innerHTML = '';
+        
+        if (drugs.length === 0) {
+            drugGrid.innerHTML = `
+                <div class="col-12 text-center py-5 text-muted">
+                    <i class="bi bi-box-seam display-4 mb-3 d-block opacity-50"></i>
+                    <p>Không tìm thấy thuốc phù hợp</p>
+                </div>`;
+            return;
+        }
+
+        drugs.forEach(drug => {
+            // Giả lập tồn kho nếu API chưa trả về
+            const stock = drug.stock !== undefined ? drug.stock : (Math.floor(Math.random() * 500) + 50); 
+            
+            // Logic màu sắc cho chữ số tồn kho
+            const stockClass = stock < 100 ? 'text-danger' : 'text-success';
+            
+            // Logic nhãn trạng thái: Nền đặc, chữ trắng
+            const stockLabel = stock < 100 ? 'Sắp hết' : 'Còn hàng';
+            const badgeClass = stock < 100 ? 'bg-warning text-white' : 'bg-success text-white';
+            
+            const imgUrl = drug.image || '/static/picture/pills/default.png';
+
+            const cardHtml = `
+                <div class="col">
+                    <div class="card drug-card h-100" onclick="addToCart(${drug.id})">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="badge bg-light text-dark border">${drug.code}</span>
+                                <span class="badge ${badgeClass} border-0">${stockLabel}</span>
+                            </div>
+                            <div class="text-center mb-2">
+                                <img src="${imgUrl}" style="height: 60px; object-fit: contain;" alt="${drug.name}">
+                            </div>
+                            <h6 class="card-title text-truncate fw-bold mb-1" title="${drug.name}">${drug.name}</h6>
+                            <div class="small text-muted mb-3">Đơn vị: ${drug.unit || 'Viên'}</div>
+                            
+                            <div class="d-flex justify-content-between align-items-end">
+                                <div>
+                                    <small class="text-muted d-block">Tồn kho</small>
+                                    <span class="fw-bold ${stockClass}">${stock}</span>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary rounded-circle btn-icon">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            drugGrid.innerHTML += cardHtml;
+        });
+    }
+
+    // --- 3. CART LOGIC (RIGHT SIDE) ---
+    
+    window.addToCart = function(id) {
+        const drug = state.searchResults.find(d => d.id == id);
+        if (!drug) return;
+
+        const existingItem = state.cart.find(item => item.id == id);
+        
+        if (existingItem) {
+            existingItem.qty += 10;
+        } else {
+            state.cart.push({
+                id: drug.id,
+                name: drug.name,
+                code: drug.code,
+                qty: 10
+            });
+        }
+        renderCart();
+    };
+
+    window.updateQty = function(id, change) {
+        const item = state.cart.find(i => i.id == id);
+        if (!item) return;
+        
+        let newQty = item.qty + change;
+        if (newQty < 1) newQty = 1;
+        item.qty = newQty;
+        renderCart();
+    };
+
+    window.removeFromCart = function(id) {
+        state.cart = state.cart.filter(item => item.id != id);
+        renderCart();
+    };
+
+    function renderCart() {
+        if (state.cart.length === 0) {
+            emptyCartMsg.style.display = 'block';
+            cartItemsArea.innerHTML = '';
+            cartItemsArea.appendChild(emptyCartMsg);
+            cartItemCount.textContent = '0 loại';
+            totalPillsEl.textContent = '0';
+            return;
+        }
+
+        emptyCartMsg.style.display = 'none';
+        cartItemsArea.innerHTML = '';
+
+        let totalCount = 0;
+
+        state.cart.forEach(item => {
+            totalCount += item.qty;
+            const itemHtml = `
+                <div class="cart-item">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <div class="fw-bold text-dark">${item.name}</div>
+                            <div class="small text-muted">Mã: ${item.code}</div>
+                            <input type="hidden" name="drug_ids[]" value="${item.id}">
+                        </div>
+                        <button type="button" class="btn btn-link text-danger p-0" onclick="removeFromCart(${item.id})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center bg-light rounded p-1">
+                        <span class="small text-muted ms-2">Số lượng:</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-white border qty-btn shadow-sm" onclick="updateQty(${item.id}, -5)">-</button>
+                            <input type="number" name="quantities[]" class="form-control form-control-sm text-center border-0 bg-transparent fw-bold p-0" 
+                                   style="width: 50px;" value="${item.qty}" onchange="updateQtyInput(${item.id}, this.value)">
+                            <button type="button" class="btn btn-white border qty-btn shadow-sm" onclick="updateQty(${item.id}, 5)">+</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            cartItemsArea.insertAdjacentHTML('beforeend', itemHtml);
+        });
+
+        cartItemCount.textContent = `${state.cart.length} loại`;
+        totalPillsEl.textContent = totalCount;
+    }
+
+    window.updateQtyInput = function(id, value) {
+        const val = parseInt(value);
+        const item = state.cart.find(i => i.id == id);
+        if (item && val > 0) {
+            item.qty = val;
+            renderCart();
+        }
+    }
+
+    // --- 4. SUBMIT VALIDATION ---
+    form.addEventListener('submit', function(e) {
+        if (state.cart.length === 0) {
+            e.preventDefault();
+            alert('Giỏ hàng đang trống! Vui lòng chọn thuốc.');
+        }
+    });
+
+</script>
+{% endblock %}
