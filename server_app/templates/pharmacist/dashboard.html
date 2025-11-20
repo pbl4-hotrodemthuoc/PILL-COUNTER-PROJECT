@@ -1,19 +1,259 @@
-<!-- Kế thừa từ layout của dược sĩ -->
 {% extends "pharmacist/layout.html" %}
 
-{% block title %}Bảng Điều Khiển Dược Sĩ{% endblock %}
+{% block title %}Tổng quan - PharmaSys{% endblock %}
 
-<!-- Toàn bộ nội dung dưới đây sẽ được chèn vào block 'content' của pharmacist/layout.html -->
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Tổng Quan Hoạt Động</h1>
-</div>
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="text-primary fw-bold mb-1">Tổng quan hôm nay</h2>
+            <p class="text-muted mb-0">{{ current_user.ho_ten }} - <span class="text-dark fw-medium">{{ current_user.ca_lam_viec.value if current_user.ca_lam_viec else 'Chưa phân ca' }}</span></p>
+        </div>
+        <div>
+            <a href="{{ url_for('pharmacist.new_order') }}" class="btn btn-primary shadow-sm">
+                <i class="fas fa-plus-circle me-2"></i>Tạo đơn mới
+            </a>
+        </div>
+    </div>
 
-<div class="p-5 mb-4 bg-light rounded-3">
-    <div class="container-fluid py-5">
-        <h1 class="display-5 fw-bold">Chào mừng, {{ current_user.ho_ten }}!</h1>
-        <p class="col-md-8 fs-4">Đây là trang tổng quan dành cho dược sĩ. Hãy bắt đầu công việc của bạn bằng cách chọn một chức năng trên thanh điều hướng.</p>
-        <button class="btn btn-primary btn-lg" type="button">Bắt đầu Đếm thuốc</button>
+    <!-- 1. THẺ THỐNG KÊ (STATS CARDS) -->
+    <div class="row g-3 mb-4">
+        <!-- Card 1: Số đơn hôm nay -->
+        <div class="col-xl-3 col-md-6">
+            <div class="stats-card h-100">
+                <div class="stats-icon text-white">
+                    <i class="fas fa-file-prescription"></i>
+                </div>
+                <div class="stats-value">{{ orders_today }}</div>
+                <div class="stats-label">Đơn đã xử lý hôm nay</div>
+            </div>
+        </div>
+
+        <!-- Card 2: Tổng viên thuốc -->
+        <div class="col-xl-3 col-md-6">
+            <div class="stats-card h-100" style="background: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-teal-dark) 100%);">
+                <div class="stats-icon">
+                    <i class="fas fa-pills"></i>
+                </div>
+                <div class="stats-value">{{ "{:,}".format(pills_today) }}</div>
+                <div class="stats-label">Viên thuốc đã đếm</div>
+            </div>
+        </div>
+
+        <!-- Card 3: Tỷ lệ chính xác -->
+        <div class="col-xl-3 col-md-6">
+            <div class="stats-card h-100" style="background: linear-gradient(135deg, var(--accent-green) 0%, #2b8a3e 100%);">
+                <div class="stats-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stats-value">{{ accuracy }}%</div>
+                <div class="stats-label">Độ chính xác trung bình</div>
+            </div>
+        </div>
+
+        <!-- Card 4: Thời gian xử lý -->
+        <div class="col-xl-3 col-md-6">
+            <div class="stats-card h-100" style="background: linear-gradient(135deg, var(--accent-orange) 0%, #e67700 100%);">
+                <div class="stats-icon">
+                    <i class="fas fa-stopwatch"></i>
+                </div>
+                <div class="stats-value">{{ avg_time }}s</div>
+                <div class="stats-label">Thời gian/đơn TB</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- 2. BẢNG ĐƠN THUỐC CẦN XỬ LÝ (MAIN COLUMN) -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom">
+                    <h6 class="m-0 fw-bold text-primary"><i class="fas fa-list-alt me-2"></i>Đơn thuốc chờ xử lý</h6>
+                    <span class="badge badge-primary badge-pill">{{ pending_orders|length }} đơn chờ</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light text-secondary">
+                                <tr>
+                                    <th class="ps-4">Mã đơn</th>
+                                    <th>Thời gian tạo</th>
+                                    <th class="text-center">SL Thuốc</th>
+                                    <th>Trạng thái</th>
+                                    <th class="text-end pe-4">Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if pending_orders %}
+                                    {% for order in pending_orders %}
+                                    <tr>
+                                        <td class="ps-4 fw-bold text-dark">{{ order.ma_don_thuoc }}</td>
+                                        <td class="text-muted small">
+                                            <i class="far fa-clock me-1"></i>
+                                            {{ order.thoi_gian_tao_don.strftime('%H:%M') }} 
+                                            <span class="text-muted fst-italic">({{ order.thoi_gian_tao_don.strftime('%d/%m') }})</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-light text-dark border">{{ order.tong_so_loai_thuoc }} loại</span>
+                                        </td>
+                                        <td>
+                                            {% if order.trang_thai_don.name == 'counting' %}
+                                                <span class="status-indicator status-pending">Đang đếm</span>
+                                            {% else %}
+                                                <span class="status-indicator status-inactive">Chờ xử lý</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end pe-4">
+                                            {% if order.trang_thai_don.name == 'counting' %}
+                                                <a href="#" class="btn btn-sm btn-warning text-dark fw-medium shadow-sm">
+                                                    <i class="fas fa-play me-1"></i> Tiếp tục
+                                                </a>
+                                            {% else %}
+                                                <button class="btn btn-sm btn-success fw-medium shadow-sm" 
+                                                        onclick="startCounting('{{ order.id }}', '{{ order.ma_don_thuoc }}')">
+                                                    <i class="fas fa-play me-1"></i> Bắt đầu
+                                                </button>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center py-5 text-muted">
+                                            <img src="https://cdn-icons-png.flaticon.com/512/7486/7486747.png" alt="Empty" width="64" class="mb-3 opacity-50">
+                                            <p class="mb-0">Không có đơn thuốc nào đang chờ xử lý.</p>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white text-center border-top-0 py-3">
+                    <a href="{{ url_for('pharmacist.my_history') }}" class="text-decoration-none text-muted small fw-medium">
+                        Xem tất cả lịch sử <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. CỘT PHỤ (RIGHT COLUMN) -->
+        <div class="col-lg-4">
+            
+            <!-- Widget: Thông báo gần đây -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <h6 class="m-0 fw-bold text-dark"><i class="fas fa-bell me-2 text-warning"></i>Thông báo mới</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% if recent_notifications %}
+                            {% for notif in recent_notifications %}
+                            <a href="{{ url_for('pharmacist.view_notification', id=notif.id) }}" class="list-group-item list-group-item-action border-0 py-3">
+                                <div class="d-flex w-100 justify-content-between align-items-start mb-1">
+                                    <strong class="text-dark small {{ 'fw-bold' if not notif.da_doc else 'fw-normal' }}">
+                                        {{ notif.tieu_de }}
+                                    </strong>
+                                    <small class="text-muted ms-2" style="font-size: 0.75rem;">
+                                        {{ notif.ngay_tao.strftime('%d/%m') }}
+                                    </small>
+                                </div>
+                                <p class="mb-0 text-muted small text-truncate">{{ notif.noi_dung }}</p>
+                            </a>
+                            {% endfor %}
+                        {% else %}
+                            <div class="p-4 text-center text-muted small">Không có thông báo mới</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Widget: Hoạt động của bạn -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <h6 class="m-0 fw-bold text-dark"><i class="fas fa-history me-2 text-info"></i>Hoạt động vừa qua</h6>
+                </div>
+                <div class="card-body">
+                    <div class="timeline ps-2">
+                        {% if recent_history %}
+                            {% for hist in recent_history %}
+                            <div class="timeline-item pb-3 ps-4 border-start ms-2 position-relative">
+                                <div class="position-absolute top-0 start-0 translate-middle rounded-circle bg-white border border-2 
+                                    {% if hist.trang_thai_khop.name == 'perfect' %}border-success text-success
+                                    {% elif hist.trang_thai_khop.name == 'mismatch' %}border-danger text-danger
+                                    {% else %}border-warning text-warning{% endif %}" 
+                                    style="width: 12px; height: 12px; margin-top: 0.25rem;">
+                                </div>
+                                <p class="mb-1 small text-muted">{{ hist.thoi_gian_ket_thuc.strftime('%H:%M %d/%m/%Y') }}</p>
+                                <h6 class="mb-1 text-dark font-size-sm">Hoàn thành đơn 
+                                    <a href="#" class="fw-bold text-primary text-decoration-none">{{ hist.ma_don_thuoc }}</a>
+                                </h6>
+                                <span class="badge 
+                                    {% if hist.trang_thai_khop.name == 'perfect' %}bg-success
+                                    {% elif hist.trang_thai_khop.name == 'mismatch' %}bg-danger
+                                    {% else %}bg-warning{% endif %} bg-opacity-10 text-dark px-2 py-1 rounded-1" style="font-size: 0.75rem;">
+                                    {{ hist.trang_thai_khop.value }}
+                                </span>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted small text-center mb-0">Chưa có hoạt động nào.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+        </div>
     </div>
 </div>
+
+<!-- MODAL XÁC NHẬN BẮT ĐẦU ĐẾM -->
+<div class="modal fade" id="startCountModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-lg">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">Xác nhận bắt đầu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-2 pb-4 text-center">
+                <div class="mb-3 text-primary">
+                    <i class="fas fa-robot fa-3x"></i>
+                </div>
+                <h4 class="fw-bold text-dark" id="modalOrderCode">DH-000</h4>
+                <p class="text-muted mb-4">Bạn đã sẵn sàng đếm thuốc cho đơn hàng này?<br>Hệ thống AI sẽ được kích hoạt.</p>
+                
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Hủy</button>
+                    <a href="#" id="btnConfirmStart" class="btn btn-primary px-4">
+                        <i class="fas fa-play me-2"></i>Bắt đầu ngay
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPT XỬ LÝ MODAL -->
+<script>
+    function startCounting(orderId, orderCode) {
+        // Cập nhật thông tin vào Modal
+        document.getElementById('modalOrderCode').textContent = orderCode;
+        
+        // Cập nhật link cho nút xác nhận (Ví dụ chuyển đến trang chi tiết/đếm)
+        // Ở đây tôi giả sử có route xử lý đếm, bạn có thể sửa lại href
+        // document.getElementById('btnConfirmStart').href = "/pharmacist/process-order/" + orderId;
+        
+        // Tạm thời redirect về trang history để demo (vì chưa có trang process-order)
+        document.getElementById('btnConfirmStart').href = "#"; 
+        document.getElementById('btnConfirmStart').onclick = function() {
+            alert("Chức năng đang phát triển: Chuyển đến màn hình camera AI...");
+        };
+
+        // Hiển thị Modal
+        var myModal = new bootstrap.Modal(document.getElementById('startCountModal'));
+        myModal.show();
+    }
+</script>
+
 {% endblock %}

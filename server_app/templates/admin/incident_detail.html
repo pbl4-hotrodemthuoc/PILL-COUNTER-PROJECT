@@ -38,7 +38,7 @@
                     </dl>
                     <hr>
                     <h5>Mô tả của Dược sĩ</h5>
-                    <p class="text-gray-800">{{ incident.mo_ta | nl2br }}</p>
+                    <p class="text-gray-800">{{ incident.mo_ta | replace('\n', '<br>') | safe }}</p>
 
                     {% if incident.url_hinh_anh %}
                         <hr>

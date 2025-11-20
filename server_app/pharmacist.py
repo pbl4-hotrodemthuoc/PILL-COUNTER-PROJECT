@@ -7,6 +7,9 @@ from flask_login import login_required, current_user
 from datetime import datetime, date, timedelta, time
 import logging # Thêm thư viện logging
 from sqlalchemy import func, case, desc, cast, Float
+import os # Thêm thư viện os để xử lý đường dẫn file
+from werkzeug.utils import secure_filename # Thêm để bảo mật tên file upload
+from werkzeug.security import check_password_hash, generate_password_hash
 
 # --- IMPORT CÁC MODEL TỪ DATABASE ---
 from .models import (
@@ -17,7 +20,9 @@ from .models import (
     DonThuoc, 
     ChiTietDonThuoc, 
     LoaiThuoc, 
-    TrangThaiKhopDonEnum
+    TrangThaiKhopDonEnum,
+    BaoCaoSuCo,      # <<< THÊM MODEL NÀY
+    LoaiSuCoEnum 
 )
 
 
@@ -43,12 +48,67 @@ def inject_pharmacist_data():
     return {}
 
 
-# --- CÁC ROUTE CỦA DƯỢC SĨ ---
-
 @pharmacist.route('/dashboard')
 @login_required
 def dashboard():
-    return render_template('pharmacist/dashboard.html')
+    today = date.today()
+    
+    # 1. THỐNG KÊ TRONG NGÀY (4 Cards trên cùng)
+    # Lấy các đơn đã hoàn thành hôm nay của user hiện tại
+    stats_query = db.session.query(
+        func.count(DonThuoc.id).label('total_orders'),
+        func.sum(DonThuoc.tong_vien_dem_duoc).label('total_pills'),
+        func.avg(DonThuoc.thoi_gian_xu_ly_giay).label('avg_time'),
+        func.sum(DonThuoc.tong_vien_yeu_cau).label('total_requested')
+    ).filter(
+        DonThuoc.id_duoc_si == current_user.id,
+        DonThuoc.trang_thai_don == 'completed',
+        func.date(DonThuoc.thoi_gian_ket_thuc) == today
+    ).first()
+
+    # Xử lý số liệu để tránh None
+    orders_today = stats_query.total_orders or 0
+    pills_today = int(stats_query.total_pills or 0)
+    avg_time = round(float(stats_query.avg_time or 0), 1)
+    
+    # Tính tỷ lệ chính xác (Tổng đếm được / Tổng yêu cầu * 100)
+    total_req = stats_query.total_requested or 0
+    accuracy = 100.0
+    if total_req > 0:
+        accuracy = (pills_today / total_req) * 100
+        # Giới hạn max 100% nếu đếm thừa, hoặc hiển thị đúng thực tế tùy logic
+        if accuracy > 100: accuracy = 100 - (accuracy - 100) # Ví dụ đơn giản
+    accuracy = round(accuracy, 1)
+
+    # 2. DANH SÁCH ĐƠN CẦN XỬ LÝ (Bảng bên trái)
+    # Lấy đơn pending hoặc counting
+    pending_orders = DonThuoc.query.filter(
+        DonThuoc.id_duoc_si == current_user.id,
+        DonThuoc.trang_thai_don.in_(['pending', 'counting'])
+    ).order_by(
+        # Ưu tiên đơn đang đếm lên đầu, sau đó đến đơn mới nhất
+        case((DonThuoc.trang_thai_don == 'counting', 0), else_=1),
+        DonThuoc.thoi_gian_tao_don.desc()
+    ).limit(10).all()
+
+    # 3. THÔNG BÁO GẦN ĐÂY (Widget phải)
+    recent_notifications = ThongBao.query.filter_by(id_nguoi_dung=current_user.id)\
+        .order_by(ThongBao.ngay_tao.desc()).limit(3).all()
+
+    # 4. HOẠT ĐỘNG GẦN ĐÂY (Widget phải - Đơn vừa xong)
+    recent_history = DonThuoc.query.filter_by(
+        id_duoc_si=current_user.id, 
+        trang_thai_don='completed'
+    ).order_by(DonThuoc.thoi_gian_ket_thuc.desc()).limit(3).all()
+
+    return render_template('pharmacist/dashboard.html',
+                           orders_today=orders_today,
+                           pills_today=pills_today,
+                           avg_time=avg_time,
+                           accuracy=accuracy,
+                           pending_orders=pending_orders,
+                           recent_notifications=recent_notifications,
+                           recent_history=recent_history)
 
 @pharmacist.route('/new-order')
 @login_required
@@ -220,10 +280,67 @@ def my_stats():
     )
 
 
-@pharmacist.route('/report-incident')
+@pharmacist.route('/report-incident', methods=['GET', 'POST'])
 @login_required
 def report_incident():
-    return render_template('pharmacist/report_incident.html')
+    if request.method == 'POST':
+        loai_su_co_str = request.form.get('loai_su_co')
+        ma_don_thuoc = request.form.get('ma_don_thuoc', '').strip()
+        mo_ta = request.form.get('mo_ta', '').strip()
+        file = request.files.get('hinh_anh')
+
+        if not loai_su_co_str or not mo_ta:
+            flash('Loại sự cố và Mô tả chi tiết là bắt buộc.', 'danger')
+            return redirect(url_for('pharmacist.report_incident'))
+        
+        try:
+            loai_su_co_enum = LoaiSuCoEnum[loai_su_co_str]
+        except KeyError:
+            flash('Loại sự cố không hợp lệ.', 'danger')
+            return redirect(url_for('pharmacist.report_incident'))
+
+        url_hinh_anh_luu = None
+        if file and file.filename != '':
+            filename = secure_filename(file.filename)
+            unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+            
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'server_app/static/uploads/incidents')
+            if not os.path.exists(upload_folder):
+                os.makedirs(upload_folder)
+
+            file_path = os.path.join(upload_folder, unique_filename)
+            file.save(file_path)
+            url_hinh_anh_luu = f'uploads/incidents/{unique_filename}'
+        
+        id_don_thuoc_db = None
+        if ma_don_thuoc:
+            don_thuoc = DonThuoc.query.filter_by(ma_don_thuoc=ma_don_thuoc).first()
+            if don_thuoc:
+                id_don_thuoc_db = don_thuoc.id
+            else:
+                flash(f'Không tìm thấy đơn thuốc với mã "{ma_don_thuoc}". Báo cáo vẫn được gửi nhưng không liên kết với đơn thuốc.', 'warning')
+
+        new_report = BaoCaoSuCo(
+            id_nguoi_bao_cao=current_user.id,
+            loai_su_co=loai_su_co_enum,
+            id_don_thuoc=id_don_thuoc_db,
+            mo_ta=mo_ta,
+            url_hinh_anh=url_hinh_anh_luu
+        )
+        
+        db.session.add(new_report)
+        db.session.commit()
+        
+        flash('Báo cáo của bạn đã được gửi thành công!', 'success')
+        return redirect(url_for('pharmacist.report_incident'))
+
+    past_reports = BaoCaoSuCo.query.filter_by(id_nguoi_bao_cao=current_user.id)\
+                                   .order_by(BaoCaoSuCo.ngay_tao.desc())\
+                                   .all()
+
+    return render_template('pharmacist/report_incident.html', 
+                           incident_types=LoaiSuCoEnum, 
+                           past_reports=past_reports)
 
 @pharmacist.route('/guide')
 @login_required
@@ -253,10 +370,45 @@ def view_notification(id):
     return redirect(request.referrer or url_for('pharmacist.dashboard'))
 
 
+# --- CẬP NHẬT FILE: server_app/pharmacist.py ---
+
 @pharmacist.route('/notifications/all')
 @login_required
 def all_notifications():
-    return "Trang hiển thị tất cả thông báo của Dược sĩ"
+    page = request.args.get('page', 1, type=int)
+    filter_loai = request.args.get('filter_loai', '')
+    search_query = request.args.get('search_query', '').strip()
+    per_page = 15
+
+    # Query cơ bản
+    query = ThongBao.query.filter_by(id_nguoi_dung=current_user.id)
+
+    # 1. Xử lý Tìm kiếm (Tìm theo tiêu đề hoặc nội dung)
+    if search_query:
+        query = query.filter(
+            (ThongBao.tieu_de.ilike(f'%{search_query}%')) | 
+            (ThongBao.noi_dung.ilike(f'%{search_query}%'))
+        )
+
+    # 2. Xử lý Lọc loại
+    if filter_loai and filter_loai != 'all':
+        try:
+            # Giả sử bạn đã import LoaiThongBaoEnum
+            query = query.filter(ThongBao.loai == filter_loai)
+        except:
+            pass
+
+    # 3. Sắp xếp (Chưa đọc lên trước, Mới nhất lên trước)
+    query = query.order_by(ThongBao.da_doc.asc(), ThongBao.ngay_tao.desc())
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    notifications = pagination.items
+
+    return render_template('pharmacist/notifications.html', 
+                           notifications=notifications, 
+                           pagination=pagination,
+                           current_filter=filter_loai,
+                           search_query=search_query) # Truyền lại search_query ra view
 
 @pharmacist.route('/settings')
 @login_required

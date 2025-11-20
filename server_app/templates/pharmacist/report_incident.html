@@ -1,0 +1,117 @@
+{% extends "pharmacist/layout.html" %}
+
+{% block title %}Báo cáo Sự cố{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1 class="page-title">Báo cáo Sự cố</h1>
+        <p class="page-subtitle">Gửi báo cáo về các vấn đề gặp phải trong quá trình làm việc.</p>
+    </div>
+</div>
+
+<div class="container content-wrapper">
+    <div class="row">
+        <!-- Cột Form Gửi Báo Cáo -->
+        <div class="col-lg-5 mb-4 mb-lg-0">
+            <div class="card card-primary h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-paper-plane me-2"></i>Gửi Báo Cáo Mới</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        <!-- Loại sự cố -->
+                        <div class="mb-3">
+                            <label for="loai_su_co" class="form-label required">Loại sự cố</label>
+                            <select class="form-select" id="loai_su_co" name="loai_su_co" required>
+                                <option value="" disabled selected>-- Chọn loại sự cố --</option>
+                                {% for type in incident_types %}
+                                <option value="{{ type.name }}">{{ type.value }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Mã đơn thuốc (tùy chọn) -->
+                        <div class="mb-3">
+                            <label for="ma_don_thuoc" class="form-label">Mã đơn thuốc (nếu có)</label>
+                            <input type="text" class="form-control" id="ma_don_thuoc" name="ma_don_thuoc" placeholder="Ví dụ: DT20241028001">
+                        </div>
+
+                        <!-- Mô tả chi tiết -->
+                        <div class="mb-3">
+                            <label for="mo_ta" class="form-label required">Mô tả chi tiết</label>
+                            <textarea class="form-control" id="mo_ta" name="mo_ta" rows="5" placeholder="Vui lòng mô tả rõ ràng vấn đề bạn gặp phải..." required></textarea>
+                        </div>
+
+                        <!-- Tải ảnh lên (tùy chọn) -->
+                        <div class="mb-4">
+                            <label for="hinh_anh" class="form-label">Đính kèm hình ảnh</label>
+                            <input class="form-control" type="file" id="hinh_anh" name="hinh_anh" accept="image/png, image/jpeg, image/gif">
+                        </div>
+                        
+                        <!-- Nút Gửi -->
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-check-circle me-2"></i> Gửi Báo Cáo
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cột Lịch Sử Báo Cáo -->
+        <div class="col-lg-7">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Lịch Sử Báo Cáo Đã Gửi</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if past_reports %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Ngày Gửi</th>
+                                    <th>Loại Sự Cố</th>
+                                    <th>Trạng Thái</th>
+                                    <th>Phản Hồi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for report in past_reports %}
+                                <tr>
+                                    <td class="text-nowrap">{{ report.ngay_tao.strftime('%d/%m/%Y %H:%M') }}</td>
+                                    <td>{{ report.loai_su_co.value }}</td>
+                                    <td>
+                                        {% set status_map = {
+                                            'pending': ('warning', 'Chờ xử lý'),
+                                            'reviewing': ('info', 'Đang xem xét'),
+                                            'resolved': ('success', 'Đã giải quyết'),
+                                            'rejected': ('danger', 'Bị từ chối')
+                                        } %}
+                                        {% set status_info = status_map.get(report.trang_thai.name, ('secondary', report.trang_thai.name)) %}
+                                        <span class="badge badge-{{ status_info[0] }}">{{ status_info[1] }}</span>
+                                    </td>
+                                    <td class="text-muted small">
+                                        {{ report.phan_hoi_admin if report.phan_hoi_admin else 'Chưa có' }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="d-flex align-items-center justify-content-center h-100 p-4">
+                        <div class="text-center">
+                            <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                            <p class="text-muted mb-0">Bạn chưa gửi báo cáo nào.</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

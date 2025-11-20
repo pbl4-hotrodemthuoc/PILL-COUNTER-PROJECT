@@ -1,0 +1,221 @@
+{% extends layout_template %}
+
+{% block title %}Hồ sơ cá nhân{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="text-primary fw-bold mb-1">Hồ sơ cá nhân</h2>
+            <p class="text-muted mb-0">Quản lý thông tin tài khoản và bảo mật</p>
+        </div>
+    </div>
+
+    <!-- Thông báo Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                    <i class="fas fa-info-circle me-2"></i> {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row g-4">
+        <!-- CỘT TRÁI: THẺ THÔNG TIN TỔNG QUAN -->
+        <div class="col-lg-4">
+            <!-- Sử dụng class 'patient-info-card' từ CSS nhưng tùy biến cho User -->
+            <div class="patient-info-card bg-white shadow-sm mb-4 d-flex flex-column align-items-center text-center p-4">
+                <div class="patient-avatar mb-3" style="width: 100px; height: 100px; font-size: 2.5rem;">
+                    {{ user.ho_ten[0] | upper }}
+                </div>
+                <h4 class="fw-bold text-primary mb-1">{{ user.ho_ten }}</h4>
+                <p class="text-muted mb-3">{{ user.vai_tro.name | capitalize }}</p>
+                
+                <div class="d-flex gap-2 justify-content-center w-100">
+                    <span class="badge {% if user.dang_hoat_dong %}badge-success{% else %}badge-danger{% endif %} badge-pill">
+                        {% if user.dang_hoat_dong %}Đang hoạt động{% else %}Vô hiệu hóa{% endif %}
+                    </span>
+                    {% if user.ca_lam_viec %}
+                    <span class="badge badge-info badge-pill">
+                        Ca: {{ user.ca_lam_viec.value }}
+                    </span>
+                    {% endif %}
+                </div>
+
+                <hr class="w-100 border-light my-4">
+
+                <div class="w-100 text-start">
+                    <div class="mb-3">
+                        <small class="text-muted d-block mb-1">Tên đăng nhập</small>
+                        <span class="fw-medium text-dark"><i class="fas fa-user-tag me-2 text-primary"></i>{{ user.ten_dang_nhap }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted d-block mb-1">Ngày tham gia</small>
+                        <span class="fw-medium text-dark"><i class="fas fa-calendar-alt me-2 text-primary"></i>{{ user.ngay_tao.strftime('%d/%m/%Y') }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Thống kê nhanh (Sử dụng stats-card CSS) -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-bottom">
+                    <h6 class="mb-0 fw-bold text-primary"><i class="fas fa-chart-line me-2"></i>Hiệu suất làm việc</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <span class="text-muted">Đơn đã xử lý</span>
+                        <span class="fw-bold text-dark">{{ user.tong_don_da_xu_ly }}</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <span class="text-muted">Viên thuốc đã đếm</span>
+                        <span class="fw-bold text-dark">{{ "{:,}".format(user.tong_vien_da_dem) }}</span>
+                    </div>
+                    <div class="mb-1">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted font-size-sm">Độ chính xác</span>
+                            <span class="fw-bold text-success">{{ user.ty_le_chinh_xac or 100 }}%</span>
+                        </div>
+                        <div class="progress-bar-wrapper">
+                            <div class="progress-bar-fill" style="width: {{ user.ty_le_chinh_xac or 100 }}%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CỘT PHẢI: FORM CHỈNH SỬA -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-light border-bottom d-flex justify-content-between align-items-center">
+                    <ul class="nav nav-pills card-header-pills" id="profileTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active btn-sm fw-medium" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button" role="tab">
+                                <i class="fas fa-user-edit me-2"></i>Thông tin chung
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link btn-sm fw-medium" id="security-tab" data-bs-toggle="tab" data-bs-target="#security" type="button" role="tab">
+                                <i class="fas fa-lock me-2"></i>Bảo mật & Mật khẩu
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card-body p-4">
+                    <div class="tab-content" id="profileTabContent">
+                        
+                        <!-- TAB 1: THÔNG TIN CHUNG -->
+                        <div class="tab-pane fade show active" id="info" role="tabpanel">
+                            <form method="POST" action="{{ url_for('main.profile') }}">
+                                <input type="hidden" name="action" value="update_info">
+                                
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-12">
+                                        <label class="form-label required">Họ và tên</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                            <input type="text" class="form-control" name="ho_ten" value="{{ user.ho_ten }}" required>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label class="form-label">Số điện thoại</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                                            <input type="tel" class="form-control" name="so_dien_thoai" value="{{ user.so_dien_thoai or '' }}" placeholder="Chưa cập nhật">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Email</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                            <input type="email" class="form-control" name="email" value="{{ user.email or '' }}" placeholder="example@pharmacy.com">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Giới tính</label>
+                                        <select class="form-select" name="gioi_tinh" disabled>
+                                            <option selected>{{ user.gioi_tinh.value if user.gioi_tinh else 'Chưa xác định' }}</option>
+                                        </select>
+                                        <div class="form-text text-muted">Liên hệ Admin để thay đổi giới tính.</div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Ca làm việc</label>
+                                        <select class="form-select" disabled>
+                                            <option selected>{{ user.ca_lam_viec.value if user.ca_lam_viec else 'Chưa phân ca' }}</option>
+                                        </select>
+                                        <div class="form-text text-muted">Ca làm việc được quản lý bởi Admin.</div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-end pt-3 border-top">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-2"></i>Lưu thay đổi
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- TAB 2: BẢO MẬT -->
+                        <div class="tab-pane fade" id="security" role="tabpanel">
+                            <div class="alert alert-warning mb-4 border-0 border-start border-4 border-warning bg-light">
+                                <div class="d-flex">
+                                    <i class="fas fa-shield-alt fa-2x me-3 text-warning"></i>
+                                    <div>
+                                        <h6 class="alert-heading fw-bold text-dark">Lưu ý bảo mật</h6>
+                                        <p class="mb-0 text-muted small">Mật khẩu nên có ít nhất 6 ký tự, bao gồm cả chữ và số để đảm bảo an toàn cho tài khoản hệ thống.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <form method="POST" action="{{ url_for('main.profile') }}">
+                                <input type="hidden" name="action" value="change_password">
+                                
+                                <div class="mb-3">
+                                    <label class="form-label required">Mật khẩu hiện tại</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white"><i class="fas fa-lock"></i></span>
+                                        <input type="password" class="form-control" name="current_password" required>
+                                    </div>
+                                </div>
+
+                                <div class="row mb-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label required">Mật khẩu mới</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-white"><i class="fas fa-key"></i></span>
+                                            <input type="password" class="form-control" name="new_password" required minlength="6">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label required">Xác nhận mật khẩu mới</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-white"><i class="fas fa-check-circle"></i></span>
+                                            <input type="password" class="form-control" name="confirm_password" required minlength="6">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-end pt-3 border-top">
+                                    <button type="button" class="btn btn-outline-secondary me-2">Hủy bỏ</button>
+                                    <button type="submit" class="btn btn-danger">
+                                        <i class="fas fa-exchange-alt me-2"></i>Đổi mật khẩu
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
