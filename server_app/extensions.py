@@ -6,12 +6,16 @@ from flask_login import LoginManager
 from flask_moment import Moment
 from flask_socketio import SocketIO
 
-# Khởi tạo các đối tượng
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
 moment = Moment()
 
-# SỬA DÒNG NÀY: Thêm cors_allowed_origins="*" để chấp nhận mọi kết nối
-# async_mode='threading' để ép buộc chạy chế độ đa luồng cơ bản, không tìm eventlet
-socketio = SocketIO(cors_allowed_origins="*", async_mode='threading', max_http_buffer_size=10000000)
+# [QUAN TRỌNG] Chuyển sang chế độ 'eventlet' để siêu tốc độ
+socketio = SocketIO(
+    cors_allowed_origins="*", 
+    async_mode='eventlet', 
+    max_http_buffer_size=10000000,
+    ping_timeout=10,    # Giảm thời gian chờ để phát hiện mất kết nối nhanh hơn
+    ping_interval=5
+)

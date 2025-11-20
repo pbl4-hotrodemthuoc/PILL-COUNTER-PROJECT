@@ -85,14 +85,14 @@
                     </div>
 
                     <div class="d-grid gap-2">
-                        <button id="btnReset" class="btn btn-warning fw-bold">
-                            <i class="bi bi-arrow-repeat"></i> ĐẾM LẠI / MỞ KHÓA
+                        <button id="btnReset" class="btn btn-warning fw-bold shadow-sm">
+                            <i class="bi bi-unlock-fill"></i> MỞ KHÓA / ĐẾM LẠI
                         </button>
+
                         <button id="btnSave" class="btn btn-secondary fw-bold py-2" disabled>
                             CHỜ ỔN ĐỊNH ĐỂ LƯU
                         </button>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -113,140 +113,137 @@
     const btnReset = document.getElementById('btnReset');
     const waiting = document.getElementById('waiting');
     
-    // Prescription Mode Elements
     const orderSelect = document.getElementById('orderSelect');
     const itemSelect = document.getElementById('itemSelect');
     const reqQtyDisplay = document.getElementById('reqQtyDisplay');
-    
-    // Free Mode Elements
     const manualTarget = document.getElementById('manualTarget');
     
-    // State Vars
-    let currentMode = 'prescription'; // 'prescription' or 'free'
+    let currentMode = 'prescription'; 
     let currentImage = "";
-    let currentTarget = 0;
 
-    // --- 1. CHUYỂN ĐỔI CHẾ ĐỘ (TAB) ---
+    // --- HÀM CẬP NHẬT TRẠNG THÁI NÚT BẤM ---
+    function setUIState(isLocked) {
+        if (isLocked) {
+            // Đã chốt
+            btnSave.disabled = false;
+            btnSave.className = "btn btn-success w-100 py-2 fw-bold shadow";
+            btnSave.innerHTML = '<i class="bi bi-check-lg"></i> LƯU VÀO CSDL';
+            btnReset.className = "btn btn-warning fw-bold shadow-sm";
+            img.style.border = "5px solid #198754";
+        } else {
+            // Đang mở khóa / Đang đếm
+            btnSave.disabled = true;
+            btnSave.className = "btn btn-secondary w-100 py-2 fw-bold";
+            btnSave.innerText = "CHỜ ỔN ĐỊNH...";
+            
+            statusEl.className = "badge bg-warning text-dark px-3 py-2 rounded-pill";
+            statusEl.innerText = "Đang đếm lại...";
+            
+            img.style.border = "none";
+        }
+    }
+
+    // --- 1. XỬ LÝ NÚT RESET (QUAN TRỌNG NHẤT) ---
+    btnReset.addEventListener('click', () => {
+        console.log("Bấm nút Reset");
+        // 1. Gửi lệnh lên server
+        socket.emit('reset_counting');
+        
+        // 2. Cập nhật giao diện NGAY LẬP TỨC (Không chờ server)
+        setUIState(false); 
+        countEl.style.color = "#000"; // Đổi màu số về đen
+    });
+
+    // --- 2. LẮNG NGHE PHẢN HỒI NHANH TỪ SERVER ---
+    socket.on('count_status_update', (data) => {
+        // Server xác nhận đã mở khóa
+        if (data.is_locked === false) {
+            setUIState(false);
+        }
+    });
+
+    // --- 3. NHẬN KẾT QUẢ HÌNH ẢNH TỪ AI ---
+    socket.on('ai_result', (data) => {
+        waiting.style.display = 'none';
+        img.style.display = 'block';
+        img.src = data.processed_image;
+        currentImage = data.processed_image;
+        
+        countEl.innerText = data.count;
+        
+        // Chỉ cập nhật trạng thái nếu server báo Locked, 
+        // hoặc nếu Server đang đếm (is_locked=false)
+        if(data.is_locked) {
+            statusEl.className = `badge bg-${data.status_color} px-3 py-2 rounded-pill`;
+            statusEl.innerText = "ĐÃ CHỐT: " + data.status_text;
+            setUIState(true);
+        } else {
+            // Đang đếm
+            statusEl.innerText = data.status_text;
+            // Đảm bảo nút Save bị khóa
+            if (!btnSave.disabled) setUIState(false); 
+        }
+    });
+
+    // --- CÁC PHẦN CÒN LẠI (CHUYỂN TAB, LƯU, CHỌN ĐƠN) GIỮ NGUYÊN ---
     window.setMode = function(mode) {
         currentMode = mode;
-        socket.emit('reset_counting'); // Reset AI khi đổi tab
+        socket.emit('reset_counting'); 
+        countEl.innerText = "0";
+        setUIState(false);
         
-        if(mode === 'free') {
-            currentTarget = parseInt(manualTarget.value) || 0;
+        if(mode === 'prescription') {
+            const opt = itemSelect.options[itemSelect.selectedIndex];
+            if(opt && opt.value) socket.emit('update_target', { target: opt.dataset.qty });
         } else {
-            // Lấy target từ dropdown hiện tại
-            const selectedOpt = itemSelect.options[itemSelect.selectedIndex];
-            currentTarget = selectedOpt ? parseInt(selectedOpt.dataset.qty) : 0;
+            const target = parseInt(manualTarget.value) || 0;
+            socket.emit('update_target', { target: target });
         }
-        
-        socket.emit('update_target', { target: currentTarget });
-        updateSaveButtonState(false); // Reset nút save
     };
 
-    // --- 2. XỬ LÝ CHỌN ĐƠN THUỐC (AJAX) ---
     orderSelect.addEventListener('change', function() {
         const orderId = this.value;
         itemSelect.innerHTML = '<option>Đang tải...</option>';
         itemSelect.disabled = true;
-        reqQtyDisplay.innerText = "0 viên";
-
         if (!orderId) return;
 
         fetch(`/pharmacist/api/get-order-details/${orderId}`)
             .then(res => res.json())
             .then(data => {
                 if(data.success) {
-                    itemSelect.innerHTML = '<option value="" data-qty="0">-- Chọn thuốc trong đơn --</option>';
+                    itemSelect.innerHTML = '<option value="" data-qty="0">-- Chọn thuốc --</option>';
                     data.items.forEach(item => {
-                        // Đánh dấu thuốc đã đếm xong
-                        const statusMark = item.is_done ? "✅ " : "⭕️ ";
-                        const option = document.createElement('option');
-                        option.value = item.detail_id;
-                        option.dataset.qty = item.req_qty;
-                        option.innerText = `${statusMark}${item.drug_name} (Cần: ${item.req_qty})`;
-                        if(item.is_done) option.disabled = true; // Không cho chọn lại cái đã xong
-                        itemSelect.appendChild(option);
+                        const opt = document.createElement('option');
+                        opt.value = item.detail_id;
+                        opt.dataset.qty = item.req_qty;
+                        let label = `${item.drug_name} (Cần: ${item.req_qty})`;
+                        if(item.is_done) { label = `✅ ${label}`; opt.disabled = true; }
+                        opt.innerText = label;
+                        itemSelect.appendChild(opt);
                     });
                     itemSelect.disabled = false;
                 }
             });
     });
 
-    // --- 3. XỬ LÝ KHI CHỌN THUỐC CỤ THỂ ---
     itemSelect.addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        if(selectedOption.value) {
-            const qty = selectedOption.dataset.qty;
-            reqQtyDisplay.innerText = `${qty} viên`;
-            currentTarget = parseInt(qty);
-            
-            // Gửi target cho Server AI
-            socket.emit('update_target', { target: qty });
+        const opt = this.options[this.selectedIndex];
+        if(opt.value) {
+            reqQtyDisplay.innerText = `${opt.dataset.qty} viên`;
+            socket.emit('update_target', { target: opt.dataset.qty });
+            socket.emit('reset_counting'); // Tự động mở khóa khi chọn thuốc mới
         }
     });
 
-    // --- 4. XỬ LÝ KHI NHẬP TAY SỐ LƯỢNG (CHẾ ĐỘ TỰ DO) ---
     manualTarget.addEventListener('input', function() {
-        if(currentMode === 'free') {
-            currentTarget = parseInt(this.value) || 0;
-            socket.emit('update_target', { target: currentTarget });
-        }
+        if(currentMode === 'free') socket.emit('update_target', { target: parseInt(this.value) || 0 });
     });
 
-    // --- 5. SOCKET IO NHẬN KẾT QUẢ TỪ SERVER ---
-    socket.on('ai_result', (data) => {
-        waiting.style.display = 'none';
-        img.style.display = 'block';
-        img.src = data.processed_image;
-        currentImage = data.processed_image; // Lưu ảnh để gửi khi Save
-
-        countEl.innerText = data.count;
-        
-        if(data.is_locked) {
-            // Đã chốt (Ổn định)
-            statusEl.className = `badge bg-${data.status_color} px-3 py-2 rounded-pill`;
-            statusEl.innerText = "ĐÃ CHỐT: " + data.status_text;
-            
-            // Bật nút Save
-            btnSave.disabled = false;
-            btnSave.className = "btn btn-success w-100 py-2 fw-bold shadow";
-            btnSave.innerHTML = '<i class="bi bi-check-lg"></i> LƯU KẾT QUẢ';
-            
-            img.style.border = "5px solid #198754";
-        } else {
-            // Đang đếm
-            statusEl.className = "badge bg-warning text-dark px-3 py-2 rounded-pill";
-            statusEl.innerText = "Đang phân tích...";
-            
-            updateSaveButtonState(false);
-            img.style.border = "none";
-        }
-    });
-
-    function updateSaveButtonState(enabled) {
-        if(!enabled) {
-            btnSave.disabled = true;
-            btnSave.className = "btn btn-secondary w-100 py-2 fw-bold";
-            btnSave.innerText = "CHỜ ỔN ĐỊNH...";
-        }
-    }
-
-    // --- 6. XỬ LÝ NÚT RESET ---
-    btnReset.addEventListener('click', () => {
-        socket.emit('reset_counting');
-        updateSaveButtonState(false);
-    });
-
-    // --- 7. XỬ LÝ NÚT LƯU (SAVE) ---
     btnSave.addEventListener('click', function() {
         if(currentMode === 'prescription') {
             const detailId = itemSelect.value;
-            if(!detailId) {
-                alert("Vui lòng chọn thuốc trong đơn trước khi lưu!");
-                return;
-            }
+            if(!detailId) return alert("Chưa chọn thuốc!");
 
-            // Gửi API lưu vào CSDL
             fetch('/pharmacist/api/save-result', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -261,19 +258,17 @@
             .then(data => {
                 if(data.success) {
                     alert("✅ " + data.msg);
-                    // Reset và load lại select box để cập nhật trạng thái
-                    socket.emit('reset_counting');
-                    // Reload trang hoặc trigger change event để load lại list
                     orderSelect.dispatchEvent(new Event('change'));
-                    updateSaveButtonState(false);
+                    socket.emit('reset_counting');
+                    setUIState(false);
                 } else {
-                    alert("❌ Lỗi: " + data.msg);
+                    alert("❌ " + data.msg);
                 }
             });
         } else {
-            // Chế độ tự do
-            alert("Chế độ tự do: Đếm xong! (Không lưu vào đơn)");
+            alert("Đếm tự do: Xong!");
             socket.emit('reset_counting');
+            setUIState(false);
         }
     });
 </script>
