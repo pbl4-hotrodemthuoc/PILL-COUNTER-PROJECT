@@ -3,63 +3,94 @@
 {% block title %}Đếm Thuốc Thông Minh{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row g-4">
+<div class="container-fluid py-3">
+    <div class="row g-3">
         <div class="col-lg-8">
-            <div class="card bg-dark border-0 shadow-lg overflow-hidden" style="height: 600px; border-radius: 15px;">
+            <div class="card bg-dark border-0 shadow overflow-hidden" style="height: 600px; border-radius: 12px;">
                 <img id="serverImage" class="w-100 h-100" style="object-fit: contain; display: none;">
-                
                 <div id="waiting" class="d-flex h-100 flex-column align-items-center justify-content-center text-white-50">
-                    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
-                    <h5>Đang kết nối với Camera AI...</h5>
-                    <small>Vui lòng bật thiết bị Raspberry Pi</small>
-                </div>
-
-                <div id="overlayStatus" class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
-                     style="background: rgba(0,0,0,0.5); display: none; pointer-events: none;">
-                    <h1 class="text-success fw-bold display-1" style="text-shadow: 2px 2px 10px #000;">ĐÃ CHỐT</h1>
+                    <div class="spinner-border text-primary mb-3"></div>
+                    <h5>Đang kết nối Camera...</h5>
                 </div>
             </div>
         </div>
 
         <div class="col-lg-4">
             <div class="card h-100 border-0 shadow-sm">
-                <div class="card-header bg-white py-3">
-                    <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-sliders"></i> Bảng Điều Khiển</h5>
+                <div class="card-header bg-white p-1 border-bottom-0">
+                    <ul class="nav nav-pills nav-fill" id="modeTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active fw-bold" id="prescription-tab" data-bs-toggle="tab" data-bs-target="#prescription-panel" type="button" onclick="setMode('prescription')">
+                                <i class="bi bi-receipt"></i> Theo Đơn
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link fw-bold" id="free-tab" data-bs-toggle="tab" data-bs-target="#free-panel" type="button" onclick="setMode('free')">
+                                <i class="bi bi-hand-index-thumb"></i> Tự Do
+                            </button>
+                        </li>
+                    </ul>
                 </div>
-                <div class="card-body text-center d-flex flex-column justify-content-center">
-                    
-                    <div class="mb-4 text-start">
-                        <label class="form-label text-muted fw-bold">Chọn thuốc cần đếm:</label>
-                        <select id="drugSelect" class="form-select form-select-lg shadow-none border-primary">
-                            <option value="0" data-qty="0">-- Chọn loại thuốc --</option>
-                            {% for d in details %}
-                            <option value="{{d.detail_id}}" data-qty="{{d.req_qty}}">
-                                {{d.drug_name}} (YC: {{d.req_qty}})
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
 
-                    <div class="py-4 mb-4 rounded-3 bg-light">
-                        <span class="text-muted text-uppercase small fw-bold">Kết quả đếm</span>
-                        <h1 id="count" class="display-1 fw-bold text-dark my-2">0</h1>
-                        <span id="status" class="badge bg-secondary px-3 py-2 rounded-pill">Chờ dữ liệu</span>
-                    </div>
-
-                    <div class="mt-auto">
-                        <div class="row g-2">
-                            <div class="col-4">
-                                <button id="btnReset" class="btn btn-warning w-100 py-3 fw-bold text-dark">
-                                    <i class="bi bi-arrow-counterclockwise"></i> ĐẾM LẠI
-                                </button>
+                <div class="card-body d-flex flex-column">
+                    <div class="tab-content mb-3" id="myTabContent">
+                        
+                        <div class="tab-pane fade show active" id="prescription-panel" role="tabpanel">
+                            <div class="mb-3">
+                                <label class="small text-muted fw-bold">1. Chọn đơn hàng:</label>
+                                <select id="orderSelect" class="form-select">
+                                    <option value="">-- Đơn chờ xử lý --</option>
+                                    {% for order in orders %}
+                                    <option value="{{ order.id }}">
+                                        {{ order.ma_don_thuoc }} - {{ order.ten_benh_nhan }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
                             </div>
-                            <div class="col-8">
-                                <button id="btnSave" class="btn btn-secondary w-100 py-3 fw-bold" disabled>
-                                    CHỜ ỔN ĐỊNH...
-                                </button>
+
+                            <div class="mb-3">
+                                <label class="small text-muted fw-bold">2. Chọn thuốc cần đếm:</label>
+                                <select id="itemSelect" class="form-select" disabled>
+                                    <option value="" data-qty="0">-- Vui lòng chọn đơn trước --</option>
+                                </select>
+                            </div>
+
+                            <div class="alert alert-primary py-2 px-3 mb-0 d-flex justify-content-between">
+                                <span>Yêu cầu:</span>
+                                <strong id="reqQtyDisplay">0 viên</strong>
                             </div>
                         </div>
+
+                        <div class="tab-pane fade" id="free-panel" role="tabpanel">
+                            <div class="mb-3">
+                                <label class="small text-muted fw-bold">Loại thuốc (Tham khảo):</label>
+                                <select id="freeDrugSelect" class="form-select">
+                                    <option value="0">-- Không xác định --</option>
+                                    {% for d in drugs %}
+                                    <option value="{{ d.id }}">{{ d.ten_thuoc }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="small text-muted fw-bold">Nhập số lượng mục tiêu:</label>
+                                <input type="number" id="manualTarget" class="form-control font-monospace fs-5 text-center" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="py-4 mt-auto mb-3 rounded-3 bg-light text-center border">
+                        <span class="text-muted small text-uppercase fw-bold">Kết quả thực tế</span>
+                        <h1 id="count" class="display-1 fw-bold text-dark my-1">0</h1>
+                        <span id="status" class="badge bg-secondary px-3 py-2 rounded-pill">Chờ tín hiệu...</span>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button id="btnReset" class="btn btn-warning fw-bold">
+                            <i class="bi bi-arrow-repeat"></i> ĐẾM LẠI / MỞ KHÓA
+                        </button>
+                        <button id="btnSave" class="btn btn-secondary fw-bold py-2" disabled>
+                            CHỜ ỔN ĐỊNH ĐỂ LƯU
+                        </button>
                     </div>
 
                 </div>
@@ -71,127 +102,179 @@
 
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-
 <script>
     const socket = io();
     
-    // Lấy các element
+    // UI Elements
     const img = document.getElementById('serverImage');
-    const wait = document.getElementById('waiting');
-    const count = document.getElementById('count');
-    const status = document.getElementById('status');
+    const countEl = document.getElementById('count');
+    const statusEl = document.getElementById('status');
     const btnSave = document.getElementById('btnSave');
     const btnReset = document.getElementById('btnReset');
-    const overlay = document.getElementById('overlayStatus');
-    const drugSelect = document.getElementById('drugSelect');
+    const waiting = document.getElementById('waiting');
+    
+    // Prescription Mode Elements
+    const orderSelect = document.getElementById('orderSelect');
+    const itemSelect = document.getElementById('itemSelect');
+    const reqQtyDisplay = document.getElementById('reqQtyDisplay');
+    
+    // Free Mode Elements
+    const manualTarget = document.getElementById('manualTarget');
+    
+    // State Vars
+    let currentMode = 'prescription'; // 'prescription' or 'free'
+    let currentImage = "";
+    let currentTarget = 0;
 
-    // Biến lưu trữ tạm
-    let currentImageBase64 = "";
-    let currentConfidence = 0;
+    // --- 1. CHUYỂN ĐỔI CHẾ ĐỘ (TAB) ---
+    window.setMode = function(mode) {
+        currentMode = mode;
+        socket.emit('reset_counting'); // Reset AI khi đổi tab
+        
+        if(mode === 'free') {
+            currentTarget = parseInt(manualTarget.value) || 0;
+        } else {
+            // Lấy target từ dropdown hiện tại
+            const selectedOpt = itemSelect.options[itemSelect.selectedIndex];
+            currentTarget = selectedOpt ? parseInt(selectedOpt.dataset.qty) : 0;
+        }
+        
+        socket.emit('update_target', { target: currentTarget });
+        updateSaveButtonState(false); // Reset nút save
+    };
 
-    // 1. Xử lý khi chọn thuốc
-    drugSelect.addEventListener('change', function() {
-        const qty = this.options[this.selectedIndex].dataset.qty || 0;
-        socket.emit('update_target', { target: qty });
-        resetUI(); // Reset giao diện khi đổi thuốc
+    // --- 2. XỬ LÝ CHỌN ĐƠN THUỐC (AJAX) ---
+    orderSelect.addEventListener('change', function() {
+        const orderId = this.value;
+        itemSelect.innerHTML = '<option>Đang tải...</option>';
+        itemSelect.disabled = true;
+        reqQtyDisplay.innerText = "0 viên";
+
+        if (!orderId) return;
+
+        fetch(`/pharmacist/api/get-order-details/${orderId}`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    itemSelect.innerHTML = '<option value="" data-qty="0">-- Chọn thuốc trong đơn --</option>';
+                    data.items.forEach(item => {
+                        // Đánh dấu thuốc đã đếm xong
+                        const statusMark = item.is_done ? "✅ " : "⭕️ ";
+                        const option = document.createElement('option');
+                        option.value = item.detail_id;
+                        option.dataset.qty = item.req_qty;
+                        option.innerText = `${statusMark}${item.drug_name} (Cần: ${item.req_qty})`;
+                        if(item.is_done) option.disabled = true; // Không cho chọn lại cái đã xong
+                        itemSelect.appendChild(option);
+                    });
+                    itemSelect.disabled = false;
+                }
+            });
     });
 
-    // 2. Xử lý nút ĐẾM LẠI
-    btnReset.addEventListener('click', function() {
-        socket.emit('reset_counting'); // Gửi lệnh về server
-        resetUI(); // Reset giao diện ngay lập tức cho mượt
+    // --- 3. XỬ LÝ KHI CHỌN THUỐC CỤ THỂ ---
+    itemSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        if(selectedOption.value) {
+            const qty = selectedOption.dataset.qty;
+            reqQtyDisplay.innerText = `${qty} viên`;
+            currentTarget = parseInt(qty);
+            
+            // Gửi target cho Server AI
+            socket.emit('update_target', { target: qty });
+        }
     });
 
-    // 3. Hàm Reset giao diện tạm thời
-    function resetUI() {
-        count.innerText = "0";
-        count.className = "display-1 fw-bold text-dark my-2";
-        status.className = "badge bg-secondary px-3 py-2 rounded-pill";
-        status.innerText = "Đang reset...";
-        
-        btnSave.disabled = true;
-        btnSave.className = "btn btn-secondary w-100 py-3 fw-bold";
-        btnSave.innerHTML = "CHỜ ỔN ĐỊNH...";
-        
-        overlay.style.display = 'none';
-        img.style.border = "none";
-    }
+    // --- 4. XỬ LÝ KHI NHẬP TAY SỐ LƯỢNG (CHẾ ĐỘ TỰ DO) ---
+    manualTarget.addEventListener('input', function() {
+        if(currentMode === 'free') {
+            currentTarget = parseInt(this.value) || 0;
+            socket.emit('update_target', { target: currentTarget });
+        }
+    });
 
-    // 4. Lắng nghe kết quả từ AI Server
+    // --- 5. SOCKET IO NHẬN KẾT QUẢ TỪ SERVER ---
     socket.on('ai_result', (data) => {
-        // Ẩn màn hình chờ, hiện ảnh camera
-        wait.style.display = 'none';
+        waiting.style.display = 'none';
         img.style.display = 'block';
         img.src = data.processed_image;
+        currentImage = data.processed_image; // Lưu ảnh để gửi khi Save
+
+        countEl.innerText = data.count;
         
-        // Lưu lại ảnh để gửi khi bấm nút Save
-        currentImageBase64 = data.processed_image;
-
-        // Cập nhật số lượng
-        count.innerText = data.count;
-
         if(data.is_locked) {
-            // --- TRẠNG THÁI: ĐÃ CHỐT ---
-            count.className = "display-1 text-success fw-bold my-2";
+            // Đã chốt (Ổn định)
+            statusEl.className = `badge bg-${data.status_color} px-3 py-2 rounded-pill`;
+            statusEl.innerText = "ĐÃ CHỐT: " + data.status_text;
             
-            status.className = `badge bg-${data.status_color} px-3 py-2 rounded-pill`;
-            status.innerText = data.status_text;
-            
+            // Bật nút Save
             btnSave.disabled = false;
-            btnSave.className = "btn btn-success w-100 py-3 fw-bold shadow";
-            btnSave.innerHTML = '<i class="bi bi-check-circle-fill"></i> XÁC NHẬN KẾT QUẢ';
+            btnSave.className = "btn btn-success w-100 py-2 fw-bold shadow";
+            btnSave.innerHTML = '<i class="bi bi-check-lg"></i> LƯU KẾT QUẢ';
             
-            // Hiệu ứng viền xanh và overlay
-            img.style.border = "5px solid #198754"; // Viền xanh lá
-            // overlay.style.display = 'flex'; // Nếu muốn hiện chữ to đùng giữa màn hình thì bỏ comment dòng này
+            img.style.border = "5px solid #198754";
         } else {
-            // --- TRẠNG THÁI: ĐANG ĐẾM ---
-            count.className = "display-1 text-primary fw-bold my-2";
+            // Đang đếm
+            statusEl.className = "badge bg-warning text-dark px-3 py-2 rounded-pill";
+            statusEl.innerText = "Đang phân tích...";
             
-            status.className = "badge bg-warning text-dark px-3 py-2 rounded-pill";
-            status.innerText = "Đang phân tích...";
-            
-            btnSave.disabled = true;
-            btnSave.className = "btn btn-secondary w-100 py-3 fw-bold";
-            btnSave.innerText = "ĐANG CHỜ ỔN ĐỊNH...";
-            
+            updateSaveButtonState(false);
             img.style.border = "none";
-            overlay.style.display = 'none';
         }
     });
 
-    // 5. Xử lý nút XÁC NHẬN (Lưu vào CSDL)
-    btnSave.addEventListener('click', function() {
-        const detailId = drugSelect.value;
-        const currentCount = count.innerText;
-
-        if(detailId == "0") {
-            alert("Vui lòng chọn loại thuốc trước khi lưu!");
-            return;
+    function updateSaveButtonState(enabled) {
+        if(!enabled) {
+            btnSave.disabled = true;
+            btnSave.className = "btn btn-secondary w-100 py-2 fw-bold";
+            btnSave.innerText = "CHỜ ỔN ĐỊNH...";
         }
+    }
 
-        // Gửi API lưu kết quả
-        fetch('/pharmacist/api/save-result', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                detail_id: detailId,
-                count: currentCount,
-                confidence: 0.95, // Giả lập độ tin cậy
-                image: currentImageBase64 // Gửi ảnh về để lưu bằng chứng
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if(data.success) {
-                alert("✅ Đã lưu kết quả thành công!");
-                window.location.href = "/pharmacist/counting/" + "{{ order.id if order else 0 }}"; // Reload lại trang
-            } else {
-                alert("❌ Lỗi: " + data.msg);
+    // --- 6. XỬ LÝ NÚT RESET ---
+    btnReset.addEventListener('click', () => {
+        socket.emit('reset_counting');
+        updateSaveButtonState(false);
+    });
+
+    // --- 7. XỬ LÝ NÚT LƯU (SAVE) ---
+    btnSave.addEventListener('click', function() {
+        if(currentMode === 'prescription') {
+            const detailId = itemSelect.value;
+            if(!detailId) {
+                alert("Vui lòng chọn thuốc trong đơn trước khi lưu!");
+                return;
             }
-        })
-        .catch(err => alert("Lỗi kết nối: " + err));
+
+            // Gửi API lưu vào CSDL
+            fetch('/pharmacist/api/save-result', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    mode: 'prescription',
+                    detail_id: detailId,
+                    count: countEl.innerText,
+                    image: currentImage
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if(data.success) {
+                    alert("✅ " + data.msg);
+                    // Reset và load lại select box để cập nhật trạng thái
+                    socket.emit('reset_counting');
+                    // Reload trang hoặc trigger change event để load lại list
+                    orderSelect.dispatchEvent(new Event('change'));
+                    updateSaveButtonState(false);
+                } else {
+                    alert("❌ Lỗi: " + data.msg);
+                }
+            });
+        } else {
+            // Chế độ tự do
+            alert("Chế độ tự do: Đếm xong! (Không lưu vào đơn)");
+            socket.emit('reset_counting');
+        }
     });
 </script>
 {% endblock %}

@@ -1,15 +1,16 @@
 # File: server_app/pharmacist.py
-# PHIÊN BẢN HOÀN THIỆN: TÍCH HỢP LOGIC AI VÀ XỬ LÝ ẢNH TỪ PI
+# PHIÊN BẢN FINAL FIX: SỬA LỖI TRÙNG HÀM VÀ LỖI TÌM KIẾM
 
 from flask import Blueprint, render_template, flash, redirect, url_for, request, jsonify, current_app
 from flask_login import login_required, current_user
 from .models import DonThuoc, ChiTietDonThuoc, LoaiThuoc, TrangThaiDonEnum, TrangThaiKhopChiTietEnum, ThongBao, ThietBi, VaiTroEnum
-from sqlalchemy import desc
+from sqlalchemy import desc, or_  # [QUAN TRỌNG] Import or_ ở đây
 from flask_socketio import emit
 import datetime
 import uuid
 import base64
 import os
+from sqlalchemy import or_
 
 # --- THƯ VIỆN XỬ LÝ ẢNH & AI ---
 import cv2
@@ -25,32 +26,40 @@ pharmacist = Blueprint('pharmacist', __name__)
 # PHẦN 0: CẤU HÌNH AI & TRẠNG THÁI ĐẾM
 # =====================================================
 
-# Biến toàn cục lưu trạng thái đếm
+# Cấu hình độ nhạy để tự động chốt
+STABLE_THRESHOLD = 20  # Số khung hình ổn định để tự khóa
+
 state = {
-    'target': 0,        # Số lượng cần đếm
-    'locked': False,    # Đã chốt kết quả chưa
-    'stable_count': 0,  # Số khung hình ổn định liên tiếp
-    'last_val': -1,     # Giá trị đếm của khung hình trước
-    'final_val': 0      # Giá trị cuối cùng sau khi chốt
+    'target': 0,        
+    'stable_count': 0,
+    'last_val': -1,
+    'final_val': 0,
+    'locked': False     # Trạng thái khóa cứng
 }
 
-# Load Model YOLO (Bọc trong Try/Except để không lỗi nếu chưa có model)
+# Load Model YOLO
 model = None
 try:
     from ultralytics import YOLO
-    # Đường dẫn tương đối tới file model
-    model_path = os.path.join(os.getcwd(), 'models', 'best.pt')
+    # Ưu tiên tìm model trong thư mục device_app
+    model_path = os.path.join(os.getcwd(), 'device_app', 'models', 'best.pt')
+    
     if os.path.exists(model_path):
         model = YOLO(model_path)
         print(f"✅ SERVER: Đã tải model AI từ {model_path}")
     else:
-        print("⚠️ SERVER: Không tìm thấy file models/best.pt. Server chạy chế độ không AI.")
+        # Fallback: Tìm ở thư mục gốc
+        alt_path = os.path.join(os.getcwd(), 'models', 'best.pt')
+        if os.path.exists(alt_path):
+            model = YOLO(alt_path)
+            print(f"✅ SERVER: Đã tải model từ {alt_path}")
+        else:
+            print(f"⚠️ SERVER: Không tìm thấy model tại {model_path} hay {alt_path}")
 except Exception as e:
     print(f"⚠️ SERVER: Lỗi khởi tạo AI: {e}")
 
 # --- HÀM HỖ TRỢ CHUYỂN ĐỔI ẢNH ---
 def base64_to_cv2(b64):
-    """Chuyển chuỗi Base64 từ Pi thành ảnh OpenCV"""
     try:
         if "," in b64: _, b64 = b64.split(",", 1)
         data = base64.b64decode(b64)
@@ -58,97 +67,87 @@ def base64_to_cv2(b64):
     except: return None
 
 def cv2_to_base64(img):
-    """Nén ảnh OpenCV thành Base64 để gửi về Web"""
-    # Giảm chất lượng xuống 50% để truyền nhanh qua Wifi
     _, buf = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
     return "data:image/jpeg;base64," + base64.b64encode(buf).decode('utf-8')
 
 
 # =====================================================
-# PHẦN 1: XỬ LÝ SOCKET IO (QUAN TRỌNG NHẤT)
+# PHẦN 1: XỬ LÝ SOCKET IO
 # =====================================================
 
 @socketio.on('update_target')
 def handle_target(data):
-    """Nhận số lượng thuốc cần đếm từ giao diện Web"""
     state['target'] = int(data.get('target', 0))
     state['locked'] = False
     state['stable_count'] = 0
-    state['final_val'] = 0
-    print(f"🎯 Server nhận mục tiêu mới: {state['target']} viên")
+    print(f"🎯 Mục tiêu: {state['target']} viên")
+
+@socketio.on('reset_counting')
+def handle_reset():
+    """Reset thủ công từ nút bấm"""
+    state['locked'] = False
+    state['stable_count'] = 0
+    state['last_val'] = -1
+    print("🔄 Đã Reset trạng thái đếm")
 
 @socketio.on('process_frame_pi')
 def handle_pi_stream(data):
-    """
-    NHẬN ẢNH TỪ RASPBERRY PI -> XỬ LÝ AI -> GỬI VỀ WEB
-    """
     try:
-        # 1. Giải mã ảnh từ Pi gửi lên
         frame = base64_to_cv2(data.get('image'))
         if frame is None: return
 
         display_count = 0
         
-        # 2. Xử lý AI (Nếu model đã được tải)
         if model:
             if not state['locked']:
-                # --- Giai đoạn đang đếm ---
-                results = model(frame, verbose=False, conf=0.5) # conf=0.5 là độ tin cậy
+                # 1. CHƯA KHÓA -> CHẠY AI
+                results = model(frame, verbose=False, conf=0.5)
                 cnt = len(results[0].boxes)
-                
-                # Vẽ khung chữ nhật quanh viên thuốc
-                frame = results[0].plot() 
+                frame = results[0].plot()
 
-                # Thuật toán ổn định: Nếu kết quả giống nhau 5 lần liên tiếp thì mới chốt
-                if cnt == state['last_val']: 
+                # Logic ổn định
+                if cnt == state['last_val']:
                     state['stable_count'] += 1
-                else: 
-                    state['last_val'], state['stable_count'] = cnt, 0
+                else:
+                    state['stable_count'] = 0
+                    state['last_val'] = cnt
                 
-                # Nếu ổn định > 10 khung hình -> KHÓA KẾT QUẢ
-                if state['stable_count'] >= 10: 
+                # TỰ ĐỘNG CHỐT NẾU ỔN ĐỊNH
+                if state['stable_count'] >= STABLE_THRESHOLD:
                     state['locked'] = True
                     state['final_val'] = cnt
-                    print(f"🔒 ĐÃ CHỐT SỐ LƯỢNG: {cnt}")
+                    print(f"🔒 ĐÃ CHỐT: {cnt}")
                 
                 display_count = cnt
             else:
-                # --- Giai đoạn đã chốt ---
-                # Không chạy AI nữa để tiết kiệm tài nguyên, chỉ vẽ chữ
+                # 2. ĐÃ KHÓA -> GIỮ NGUYÊN KẾT QUẢ
                 display_count = state['final_val']
-                cv2.putText(frame, f"LOCKED: {display_count}", (50, 50), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
-                # Vẽ viền xanh báo hiệu thành công
-                cv2.rectangle(frame, (0,0), (frame.shape[1], frame.shape[0]), (0,255,0), 5)
+                cv2.rectangle(frame, (0,0), (frame.shape[1], frame.shape[0]), (0, 255, 0), 4)
+                cv2.putText(frame, f"LOCKED: {display_count}", (30, 50), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-        # 3. Tính toán trạng thái để hiển thị màu sắc trên Web
+        # Tính toán hiển thị
         target = state['target']
         diff = display_count - target
         percent = round((display_count/target)*100, 1) if target > 0 else 0
         
-        status_text, color = "Đang đếm...", "warning"
+        status, color = "Đang phân tích...", "warning"
         
         if state['locked']:
-            if diff == 0: 
-                status_text, color = "Khớp hoàn toàn", "success"
-            elif diff > 0: 
-                status_text, color = f"Dư {diff} viên", "warning" # Màu vàng nếu dư
-            else: 
-                status_text, color = f"Thiếu {abs(diff)} viên", "danger" # Màu đỏ nếu thiếu
-
-        # 4. Gửi dữ liệu về trình duyệt (Web Browser)
+            if diff == 0: status, color = "Khớp hoàn toàn", "success"
+            elif diff > 0: status, color = f"Dư {diff} viên", "warning"
+            else: status, color = f"Thiếu {abs(diff)} viên", "danger"
+        
         emit('ai_result', {
             'processed_image': cv2_to_base64(frame),
             'count': display_count,
-            'status_text': status_text,
+            'status_text': status,
             'status_color': color,
             'percent': percent,
             'is_locked': state['locked']
         }, broadcast=True)
 
-    except Exception as e:
-        # Không in lỗi liên tục để tránh lag server
-        pass
+    except Exception: pass
 
 
 # =====================================================
@@ -157,7 +156,6 @@ def handle_pi_stream(data):
 
 @pharmacist.context_processor
 def inject_pharmacist_data():
-    """Cung cấp biến chung cho template."""
     if current_user.is_authenticated and current_user.vai_tro == VaiTroEnum.pharmacist:
         unread_notifications = ThongBao.query.filter_by(id_nguoi_dung=current_user.id, da_doc=False).all()
         device = ThietBi.query.get(1) 
@@ -198,52 +196,59 @@ def guide():
 def settings():
     return "Trang Cài đặt của Dược sĩ"
 
-# --- API TÌM KIẾM VÀ LỌC THUỐC ---
+# --- API TÌM KIẾM VÀ LỌC THUỐC (ĐÃ FIX LỖI LOADING) ---
 @pharmacist.route('/api/search-drugs')
 @login_required
 def search_drugs():
+    """
+    API tìm kiếm thuốc.
+    Trả về JSON danh sách thuốc để hiển thị lên Grid.
+    """
     query = request.args.get('q', '').strip()
-    category = request.args.get('category', 'all')
     
     try:
+        # 1. Bắt đầu query cơ bản
+        # Chỉ lấy thuốc đang sử dụng (dang_su_dung = True)
         sql_query = LoaiThuoc.query.filter(LoaiThuoc.dang_su_dung == True)
 
+        # 2. Lọc theo từ khóa (nếu có)
         if query:
             search_term = f"%{query}%"
+            # Sử dụng or_ từ sqlalchemy đã import ở đầu file
             sql_query = sql_query.filter(
-                db.or_(
+                or_(
                     LoaiThuoc.ten_thuoc.ilike(search_term),
                     LoaiThuoc.ma_thuoc.ilike(search_term)
                 )
             )
         
-        if category == 'antibiotic':
-            sql_query = sql_query.filter(LoaiThuoc.mo_ta.ilike('%kháng sinh%'))
-        elif category == 'painkiller':
-            sql_query = sql_query.filter(db.or_(LoaiThuoc.mo_ta.ilike('%giảm đau%'), LoaiThuoc.mo_ta.ilike('%hạ sốt%')))
-        elif category == 'vitamin':
-            sql_query = sql_query.filter(LoaiThuoc.ten_thuoc.ilike('%vitamin%'))
+        # 3. Giới hạn kết quả (tránh load quá nặng)
+        drugs = sql_query.limit(50).all()
         
-        drugs = sql_query.limit(30).all()
-        
+        # 4. Chuẩn hóa dữ liệu trả về (Mapping với Model)
         results = []
         for d in drugs:
+            # Xử lý ảnh (Nếu không có ảnh thì dùng ảnh mặc định)
             img_url = d.url_hinh_anh if d.url_hinh_anh else url_for('static', filename='picture/pills/default.png')
+            
             results.append({
                 'id': d.id,
-                'name': d.ten_thuoc,
-                'code': d.ma_thuoc,
+                'name': d.ten_thuoc,       # Khớp với models.py
+                'code': d.ma_thuoc,        # Khớp với models.py
                 'image': img_url,
-                'stock': d.ton_kho_uoc_tinh,
-                'unit': d.don_vi_tinh,
-                'desc': d.mo_ta or "Chưa có mô tả.",
-                'usage_count': d.so_lan_duoc_dem
+                'stock': d.ton_kho_uoc_tinh or 0,  # Khớp với models.py
+                'unit': d.don_vi_tinh or 'Viên',   # Khớp với models.py
+                'desc': d.mo_ta or "Chưa có mô tả chi tiết.",
+                'usage_count': d.so_lan_duoc_dem or 0
             })
+        
         return jsonify(results)
-    except Exception as e:
-        print(f"Lỗi API Search: {e}")
-        return jsonify([])
 
+    except Exception as e:
+        print(f"❌ LỖI API SEARCH: {e}")
+        # Trả về danh sách rỗng để Web không bị treo loading
+        return jsonify([])
+        
 # --- API LẤY CHI TIẾT THUỐC ---
 @pharmacist.route('/api/drug-detail/<int:drug_id>')
 @login_required
@@ -394,77 +399,123 @@ def delete_order(order_id):
             flash(f'Lỗi xóa đơn: {str(e)}', 'danger')
     return redirect(url_for('pharmacist.order_list'))
 
-# --- TRANG ĐẾM THUỐC (QUAN TRỌNG) ---
+# --- TRANG ĐẾM THUỐC ---
 @pharmacist.route('/counting')
 @login_required
 def counting_page_no_id():
-    return render_template('pharmacist/counting.html', order=None, details=[])
+    """
+    Trang giao diện đếm thuốc chính.
+    Load danh sách các đơn thuốc CHƯA HOÀN THÀNH để dược sĩ chọn.
+    """
+    # 1. Lấy danh sách đơn thuốc đang chờ (Pending hoặc Counting)
+    pending_orders = DonThuoc.query.filter(
+        or_(
+            DonThuoc.trang_thai_don == TrangThaiDonEnum.pending,
+            DonThuoc.trang_thai_don == TrangThaiDonEnum.counting
+        )
+    ).order_by(desc(DonThuoc.thoi_gian_tao_don)).all()
 
-@pharmacist.route('/counting/<int:order_id>')
+    # 2. Lấy danh sách tất cả loại thuốc (cho chế độ Đếm Tự Do)
+    all_drugs = LoaiThuoc.query.filter_by(dang_su_dung=True).all()
+
+    return render_template(
+        'pharmacist/counting.html', 
+        orders=pending_orders, 
+        drugs=all_drugs
+    )
+
+# --- API: Lấy chi tiết của một đơn thuốc khi chọn Dropdown ---
+@pharmacist.route('/api/get-order-details/<int:order_id>')
 @login_required
-def counting_page(order_id):
-    order = DonThuoc.query.get_or_404(order_id)
-    if order.trang_thai_don == TrangThaiDonEnum.pending:
-        order.trang_thai_don = TrangThaiDonEnum.counting
-        db.session.commit()
+def get_order_details_api(order_id):
+    try:
+        order = DonThuoc.query.get_or_404(order_id)
+        
+        # Lấy danh sách thuốc trong đơn này
+        items = []
+        for item in order.chi_tiet_don:
+            items.append({
+                'detail_id': item.id,
+                'drug_name': item.loai_thuoc_info.ten_thuoc,
+                'drug_code': item.loai_thuoc_info.ma_thuoc,
+                'req_qty': item.so_luong_yeu_cau,
+                'counted_qty': item.so_luong_dem_duoc or 0,
+                'is_done': item.trang_thai_khop is not None # Đã đếm xong chưa
+            })
+            
+        return jsonify({'success': True, 'items': items})
+    except Exception as e:
+        return jsonify({'success': False, 'msg': str(e)})
 
-    details = []
-    for item in order.chi_tiet_don:
-        details.append({
-            'detail_id': item.id,
-            'drug_name': item.loai_thuoc_info.ten_thuoc,
-            'drug_code': item.loai_thuoc_info.ma_thuoc,
-            'req_qty': item.so_luong_yeu_cau,
-            'counted_qty': item.so_luong_dem_duoc or 0,
-            'status': item.trang_thai_khop.name if item.trang_thai_khop else 'unchecked'
-        })
-    return render_template('pharmacist/counting.html', order=order, details=details)
-
-# --- API LƯU KẾT QUẢ ĐẾM ---
+# --- API: Lưu kết quả đếm vào CSDL (QUAN TRỌNG) ---
 @pharmacist.route('/api/save-result', methods=['POST'])
 @login_required
 def save_result():
     data = request.json
     try:
-        detail_id = data.get('detail_id')
-        count = int(data.get('count'))
-        conf = float(data.get('confidence', 0.0))
-        image_b64 = data.get('image') # Nhận ảnh từ nút "Xác nhận"
-
-        item = ChiTietDonThuoc.query.get(detail_id)
-        if not item:
-            return jsonify({'success': False, 'msg': 'Không tìm thấy chi tiết đơn'})
-
-        # Lưu ảnh vào server để làm bằng chứng
-        if image_b64 and 'base64' in image_b64:
-            try:
-                if "," in image_b64: _, b64_data = image_b64.split(",", 1)
-                else: b64_data = image_b64
-                
-                filename = f"proof_{detail_id}_{int(datetime.datetime.now().timestamp())}.jpg"
-                filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-                with open(filepath, "wb") as f:
-                    f.write(base64.b64decode(b64_data))
-                item.url_hinh_anh = f"/static/uploads/{filename}"
-            except Exception as e:
-                print(f"Lỗi lưu ảnh: {e}")
-
-        item.so_luong_dem_duoc = count
-        item.do_tin_cay = conf
-        item.thoi_gian_nhan_dien_ms = 0 # Placeholder
+        mode = data.get('mode') # 'prescription' hoặc 'free'
         
-        if count == item.so_luong_yeu_cau:
-            item.trang_thai_khop = TrangThaiKhopChiTietEnum.match
-        elif count > item.so_luong_yeu_cau:
-            item.trang_thai_khop = TrangThaiKhopChiTietEnum.over
-        else:
-            item.trang_thai_khop = TrangThaiKhopChiTietEnum.under
+        # === TRƯỜNG HỢP 1: ĐẾM THEO ĐƠN ===
+        if mode == 'prescription':
+            detail_id = data.get('detail_id')
+            count = int(data.get('count'))
+            image_b64 = data.get('image')
+
+            # 1. Tìm chi tiết đơn
+            item = ChiTietDonThuoc.query.get(detail_id)
+            if not item:
+                return jsonify({'success': False, 'msg': 'Không tìm thấy dòng chi tiết đơn thuốc'})
+
+            # 2. Cập nhật thông tin đếm
+            item.so_luong_dem_duoc = count
+            item.thoi_gian_nhan_dien_ms = 0 # (Có thể tính time thực tế nếu muốn)
             
-        item.chenh_lech = count - item.so_luong_yeu_cau
-        db.session.commit()
-        return jsonify({'success': True})
+            # 3. Lưu ảnh bằng chứng
+            if image_b64 and 'base64' in image_b64:
+                try:
+                    if "," in image_b64: _, b64_data = image_b64.split(",", 1)
+                    else: b64_data = image_b64
+                    
+                    filename = f"count_{item.id}_{int(datetime.datetime.now().timestamp())}.jpg"
+                    filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+                    with open(filepath, "wb") as f:
+                        f.write(base64.b64decode(b64_data))
+                    item.url_hinh_anh = f"/static/uploads/{filename}"
+                except: pass
+
+            # 4. So sánh và cập nhật trạng thái khớp
+            diff = count - item.so_luong_yeu_cau
+            item.chenh_lech = diff
+            
+            if diff == 0:
+                item.trang_thai_khop = TrangThaiKhopChiTietEnum.match
+            elif diff > 0:
+                item.trang_thai_khop = TrangThaiKhopChiTietEnum.over
+            else:
+                item.trang_thai_khop = TrangThaiKhopChiTietEnum.under
+
+            # 5. Cập nhật trạng thái Đơn Thuốc (Cha)
+            # Nếu đơn đang pending -> chuyển sang counting
+            don_thuoc = item.don_thuoc
+            if don_thuoc.trang_thai_don == TrangThaiDonEnum.pending:
+                don_thuoc.trang_thai_don = TrangThaiDonEnum.counting
+                don_thuoc.thoi_gian_bat_dau = datetime.datetime.now()
+            
+            # Cộng dồn tổng viên đã đếm của đơn
+            # (Logic này nên dùng SQL query sum lại cho chính xác, ở đây cộng tạm)
+            don_thuoc.tong_vien_dem_duoc = (don_thuoc.tong_vien_dem_duoc or 0) + count
+
+            db.session.commit()
+            return jsonify({'success': True, 'msg': 'Đã lưu vào đơn thuốc!'})
+
+        # === TRƯỜNG HỢP 2: ĐẾM TỰ DO ===
+        else:
+            # Đếm tự do thì không lưu vào đơn, có thể lưu vào Log hoặc chỉ trả về OK
+            # Bạn có thể mở rộng logic: Trừ kho trực tiếp, v.v.
+            return jsonify({'success': True, 'msg': 'Đã hoàn tất đếm tự do (Không lưu đơn)'})
 
     except Exception as e:
+        db.session.rollback()
         return jsonify({'success': False, 'msg': str(e)})
 
 # --- THÔNG BÁO ---
@@ -476,23 +527,18 @@ def mark_all_read():
     flash('Đã đánh dấu tất cả là đã đọc.', 'success')
     return redirect(request.referrer or url_for('pharmacist.dashboard'))
 
+@pharmacist.route('/notifications/<int:id>')
+@login_required
+def view_notification(id):
+    notif = ThongBao.query.get_or_404(id)
+    if notif.id_nguoi_dung == current_user.id:
+        notif.da_doc = True
+        db.session.commit()
+    return redirect(url_for('pharmacist.dashboard'))
+
 @pharmacist.route('/notifications/all')
 @login_required
 def all_notifications():
-    """
-    Trang xem tất cả thông báo.
-    Tạm thời reload lại trang hiện tại hoặc render dashboard nếu chưa có template riêng.
-    """
-    # Nếu bạn chưa có file template riêng cho danh sách thông báo, 
-    # ta tạm thời chuyển hướng về Dashboard và hiện thông báo.
+    """Trang xem tất cả thông báo"""
     flash('Đang hiển thị tất cả thông báo.', 'info')
     return render_template('pharmacist/dashboard.html')
-@socketio.on('reset_counting')
-def handle_reset():
-    """Hàm này chạy khi bấm nút Đếm lại trên Web"""
-    global state
-    state['locked'] = False       # Mở khóa để AI tiếp tục đếm
-    state['stable_count'] = 0     # Reset bộ đếm ổn định
-    state['last_val'] = -1        # Reset giá trị cũ
-    # Không reset state['target'] vì mục tiêu vẫn giữ nguyên
-    print("🔄 SERVER: Đã nhận lệnh ĐẾM LẠI!")
