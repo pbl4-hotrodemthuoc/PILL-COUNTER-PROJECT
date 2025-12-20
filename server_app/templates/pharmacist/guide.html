@@ -1,0 +1,104 @@
+{% extends "pharmacist/layout.html" %}
+
+{% block title %}Hướng Dẫn Sử Dụng{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="container">
+        <h1 class="page-title">Hướng Dẫn Sử Dụng Hệ Thống</h1>
+        <p class="page-subtitle">Tài liệu tham khảo nhanh cho các quy trình và tình huống thường gặp.</p>
+    </div>
+</div>
+
+<div class="container content-wrapper">
+    <div class="row g-4">
+        <!-- Cột Nội dung chính -->
+        <div class="col-lg-8">
+            <!-- 1. Quy trình đếm thuốc -->
+            <div class="card mb-4" id="quy-trinh">
+                <div class="card-header d-flex align-items-center">
+                    <i class="fas fa-tasks fa-fw me-2 text-primary"></i>
+                    <h5 class="mb-0">Quy Trình Đếm Thuốc Từ A-Z</h5>
+                </div>
+                <div class="card-body">
+                    <ol class="list-group list-group-numbered">
+                        <li class="list-group-item"><strong>Bước 1: Tạo Đơn Thuốc Mới</strong><br>Tại trang Dashboard, nhấn vào nút "Tạo Đơn Mới" để bắt đầu phiên làm việc.</li>
+                        <li class="list-group-item"><strong>Bước 2: Chuẩn Bị Thuốc</strong><br>Lấy đúng loại thuốc và rải một lớp mỏng, đều lên khay đếm của thiết bị. Tránh để thuốc chồng chéo lên nhau.</li>
+                        <li class="list-group-item"><strong>Bước 3: Bắt Đầu Đếm</strong><br>Hệ thống AI sẽ tự động nhận diện và đếm số lượng viên thuốc trên khay. Quá trình này thường mất vài giây.</li>
+                        <li class="list-group-item"><strong>Bước 4: Xem & Xác Nhận Kết Quả</strong><br>Kết quả đếm sẽ hiển thị trên màn hình. So sánh số lượng đếm được với số lượng yêu cầu.</li>
+                        <li class="list-group-item"><strong>Bước 5: Hoàn Tất Đơn</strong><br>Nếu kết quả chính xác, nhấn "Hoàn tất". Nếu có sai lệch, bạn có thể điều chỉnh và ghi chú lại trước khi hoàn tất.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- 2. Xử lý tình huống -->
+            <div class="card mb-4" id="xu-ly-tinh-huong">
+                <div class="card-header d-flex align-items-center">
+                    <i class="fas fa-exclamation-circle fa-fw me-2 text-warning"></i>
+                    <h5 class="mb-0">Xử Lý Các Tình Huống Thường Gặp</h5>
+                </div>
+                <div class="card-body">
+                    <h6><i class="bi bi-patch-question-fill text-muted me-2"></i>Phải làm gì khi thuốc bị dính hoặc chồng lên nhau?</h6>
+                    <p class="text-secondary">Dùng dụng cụ chuyên dụng để tách các viên thuốc ra và dàn lại cho đều. Đảm bảo mỗi viên thuốc nằm riêng lẻ để AI có thể nhận diện chính xác nhất.</p>
+                    <hr>
+                    <h6><i class="bi bi-patch-question-fill text-muted me-2"></i>Phải làm gì khi ánh sáng môi trường yếu hoặc bị lóa?</h6>
+                    <p class="text-secondary">Kiểm tra lại hệ thống đèn của thiết bị. Đảm bảo không có nguồn sáng mạnh nào khác chiếu trực tiếp vào khay đếm gây lóa. Môi trường đủ sáng và không bị bóng che là lý tưởng nhất.</p>
+                     <hr>
+                    <h6><i class="bi bi-patch-question-fill text-muted me-2"></i>Hệ thống nhận diện sai loại thuốc?</h6>
+                    <p class="text-secondary">Đây là một sự cố hiếm gặp. Vui lòng tạo một "Báo cáo sự cố" với loại "Lỗi AI", đính kèm hình ảnh viên thuốc và mã đơn thuốc để đội ngũ kỹ thuật kiểm tra và cập nhật lại mô hình AI.</p>
+                </div>
+            </div>
+
+            <!-- 3. Giải thích chỉ số -->
+            <div class="card" id="giai-thich-chi-so">
+                <div class="card-header d-flex align-items-center">
+                    <i class="fas fa-chart-line fa-fw me-2 text-success"></i>
+                    <h5 class="mb-0">Giải Thích Các Chỉ Số Thống Kê</h5>
+                </div>
+                <div class="card-body">
+                    <dl>
+                        <dt>Tỷ lệ chính xác</dt>
+                        <dd class="text-secondary">Là phần trăm giữa tổng số viên đếm được so với tổng số viên yêu cầu trong một khoảng thời gian. Chỉ số này phản ánh mức độ khớp giữa kết quả của hệ thống và yêu cầu thực tế.</dd>
+                        <br>
+                        <dt>Thời gian xử lý trung bình</dt>
+                        <dd class="text-secondary">Là tổng thời gian (tính bằng giây) từ lúc bắt đầu đến lúc hoàn tất một đơn thuốc, chia cho tổng số đơn đã hoàn thành. Chỉ số này đo lường hiệu suất làm việc của bạn.</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cột Video và Mục lục -->
+        <div class="col-lg-4">
+            <!-- Mục lục -->
+            <div class="card mb-4">
+                 <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-compass-fill me-2"></i>Điều Hướng Nhanh</h6>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="#quy-trinh" class="list-group-item list-group-item-action">1. Quy Trình Đếm Thuốc</a>
+                    <a href="#xu-ly-tinh-huong" class="list-group-item list-group-item-action">2. Xử Lý Tình Huống</a>
+                    <a href="#giai-thich-chi-so" class="list-group-item list-group-item-action">3. Giải Thích Các Chỉ Số</a>
+                </div>
+            </div>
+
+            <!-- Video -->
+            <div class="card">
+                <div class="card-header d-flex align-items-center">
+                    <i class="fab fa-youtube fa-fw me-2 text-danger"></i>
+                    <h5 class="mb-0">Video Hướng Dẫn Trực Quan</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-secondary">Xem video dưới đây để có cái nhìn tổng quan về cách vận hành hệ thống.</p>
+                    <!-- 
+                        Khi bạn có video trên YouTube, hãy nhấn "Share" -> "Embed" 
+                        và dán mã iframe vào đây. Dưới đây là một ví dụ.
+                    -->
+                    <div class="ratio ratio-16x9">
+                         <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
