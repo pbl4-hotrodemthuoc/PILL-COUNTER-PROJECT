@@ -597,7 +597,8 @@ from .extensions import db, socketio
 from .models import (
     ThongBao, ThietBi, VaiTroEnum, DonThuoc, ChiTietDonThuoc, 
     LoaiThuoc, TrangThaiDonEnum, TrangThaiKhopDonEnum, 
-    TrangThaiKhopChiTietEnum, BaoCaoSuCo, LoaiSuCoEnum
+    TrangThaiKhopChiTietEnum, BaoCaoSuCo, LoaiSuCoEnum,
+    NhatKyHeThong, LoaiLogEnum
 )
 
 # --- KHỞI TẠO BLUEPRINT ---
@@ -920,11 +921,41 @@ def my_stats():
         'total_errors': int(error_query.under or 0) + int(error_query.over or 0)
     }
 
+    # TOP 5 THUỐC ĐẾM NHIỀU NHẤT
+    top_counted_drugs = db.session.query(
+        LoaiThuoc.ten_thuoc,
+        func.sum(ChiTietDonThuoc.so_luong_dem_duoc).label('total')
+    ).join(ChiTietDonThuoc, LoaiThuoc.id == ChiTietDonThuoc.id_loai_thuoc)\
+     .join(DonThuoc, ChiTietDonThuoc.id_don_thuoc == DonThuoc.id)\
+     .filter(
+        DonThuoc.id_duoc_si == current_user.id,
+        DonThuoc.trang_thai_don == 'completed',
+        func.date(DonThuoc.thoi_gian_ket_thuc).between(start_date, end_date)
+    ).group_by(LoaiThuoc.id)\
+     .order_by(func.sum(ChiTietDonThuoc.so_luong_dem_duoc).desc())\
+     .limit(5).all()
+
+    # TOP 5 THUỐC HAY ĐẾM SAI (Accuracy thấp)
+    top_inaccurate_drugs = db.session.query(
+        LoaiThuoc.ten_thuoc,
+        (func.sum(ChiTietDonThuoc.so_luong_dem_duoc) * 100.0 / func.sum(ChiTietDonThuoc.so_luong_yeu_cau)).label('accuracy')
+    ).join(ChiTietDonThuoc, LoaiThuoc.id == ChiTietDonThuoc.id_loai_thuoc)\
+     .join(DonThuoc, ChiTietDonThuoc.id_don_thuoc == DonThuoc.id)\
+     .filter(
+        DonThuoc.id_duoc_si == current_user.id,
+        DonThuoc.trang_thai_don == 'completed',
+        ChiTietDonThuoc.chenh_lech != 0,
+        func.date(DonThuoc.thoi_gian_ket_thuc).between(start_date, end_date)
+    ).group_by(LoaiThuoc.id)\
+     .order_by((func.sum(ChiTietDonThuoc.so_luong_dem_duoc) * 100.0 / func.sum(ChiTietDonThuoc.so_luong_yeu_cau)).asc())\
+     .limit(5).all()
+
     return render_template('pharmacist/my_stats.html', period=period, 
                            summary_stats=summary_stats, 
                            trend_chart_data=trend_chart_data, 
                            pie_chart_data=pie_chart_data,
-                           top_counted_drugs=[], top_inaccurate_drugs=[])
+                           top_counted_drugs=top_counted_drugs, 
+                           top_inaccurate_drugs=top_inaccurate_drugs)
 
 @pharmacist.route('/report-incident', methods=['GET', 'POST'])
 @login_required
@@ -974,10 +1005,35 @@ def settings():
 @login_required
 def search_drugs():
     q = request.args.get('q', '').strip()
+    category = request.args.get('category', 'all')
+    
     sql = LoaiThuoc.query.filter(LoaiThuoc.dang_su_dung == True)
-    if q: sql = sql.filter(or_(LoaiThuoc.ten_thuoc.ilike(f'%{q}%'), LoaiThuoc.ma_thuoc.ilike(f'%{q}%')))
+    
+    if q: 
+        sql = sql.filter(or_(
+            LoaiThuoc.ten_thuoc.ilike(f'%{q}%'), 
+            LoaiThuoc.ma_thuoc.ilike(f'%{q}%')
+        ))
+    
+    # Filter by category
+    if category == 'antibiotic':
+        sql = sql.filter(LoaiThuoc.mo_ta.ilike('%kháng sinh%'))
+    elif category == 'painkiller':
+        sql = sql.filter(or_(LoaiThuoc.mo_ta.ilike('%giảm đau%'), LoaiThuoc.mo_ta.ilike('%hạ sốt%')))
+    elif category == 'vitamin':
+        sql = sql.filter(LoaiThuoc.ten_thuoc.ilike('%vitamin%'))
+        
     drugs = sql.limit(50).all()
-    return jsonify([{'id': d.id, 'name': d.ten_thuoc, 'code': d.ma_thuoc, 'stock': d.ton_kho_uoc_tinh} for d in drugs])
+    
+    return jsonify([{
+        'id': d.id, 
+        'name': d.ten_thuoc, 
+        'code': d.ma_thuoc, 
+        'stock': d.ton_kho_uoc_tinh or 0,
+        'unit': d.don_vi_tinh,
+        'image': d.url_hinh_anh,
+        'warning_threshold': d.nguong_canh_bao or 0 # EXPOSE THRESHOLD
+    } for d in drugs])
 
 @pharmacist.route('/api/get-order-details/<int:order_id>')
 @login_required
@@ -987,9 +1043,22 @@ def get_order_details_api(order_id):
         items = []
         for item in order.chi_tiet_don:
             if not item.loai_thuoc_info: continue
+            drug = item.loai_thuoc_info
+            
+            # Simulated Avg Accuracy (Since it's not directly in DB yet, or calculated)
+            # In a real scenario you might calculate this from ChiTietDonThuoc
+            
             items.append({
-                'detail_id': item.id, 'drug_name': item.loai_thuoc_info.ten_thuoc,
-                'req_qty': item.so_luong_yeu_cau, 'is_done': item.trang_thai_khop == TrangThaiKhopChiTietEnum.match
+                'detail_id': item.id, 
+                'drug_id': drug.id,
+                'drug_name': drug.ten_thuoc,
+                'req_qty': item.so_luong_yeu_cau, 
+                'is_done': item.so_luong_dem_duoc is not None, # Check if counted
+                # --- NEW STATS DATA ---
+                'total_counted': drug.tong_luong_da_dem or 0,
+                'times_counted': drug.so_lan_duoc_dem or 0,
+                'threshold': drug.nguong_canh_bao or 0,
+                'image': drug.url_hinh_anh
             })
         return jsonify({'success': True, 'items': items})
     except Exception as e: return jsonify({'success': False, 'msg': str(e)})
@@ -1056,8 +1125,81 @@ def save_result():
             
             don.tong_vien_dem_duoc = sum([(ct.so_luong_dem_duoc or 0) for ct in don.chi_tiet_don])
             
+            # FLUSH TO ENSURE DATA IS WRITTEN BEFORE CHECK
+            db.session.flush()
+            
+            # Re-query to get fresh data
+            db.session.refresh(don)
+            
+            # CHECK IF ALL ITEMS ARE DONE -> AUTO COMPLETE
+            all_done = all(ct.so_luong_dem_duoc is not None for ct in don.chi_tiet_don)
+            
+            if all_done:
+                don.trang_thai_don = TrangThaiDonEnum.completed
+                don.thoi_gian_ket_thuc = datetime.now()
+                
+                # Calculate Duration
+                start_time = don.thoi_gian_bat_dau or don.thoi_gian_tao_don
+                if start_time:
+                    delta = don.thoi_gian_ket_thuc - start_time
+                    don.thoi_gian_xu_ly_giay = int(delta.total_seconds())  # Save actual time, even 0
+                
+                # Determine Overall Match Status
+                total_diff = sum([abs(ct.chenh_lech or 0) for ct in don.chi_tiet_don])
+                has_mismatch = any(ct.trang_thai_khop != TrangThaiKhopChiTietEnum.match for ct in don.chi_tiet_don)
+                
+                if total_diff == 0 and not has_mismatch:
+                    don.trang_thai_khop = TrangThaiKhopDonEnum.perfect
+                elif has_mismatch:
+                    don.trang_thai_khop = TrangThaiKhopDonEnum.mismatch
+                else:
+                    don.trang_thai_khop = TrangThaiKhopDonEnum.partial
+                
+                # Log Completion
+                log = NhatKyHeThong(
+                loai_log=LoaiLogEnum.info,
+                    noi_dung=f'Hoàn thành đơn {don.ma_don_thuoc} (Khớp: {don.trang_thai_khop.value})',
+                    id_nguoi_dung=current_user.id
+                )
+                db.session.add(log)
+
+                # --- NEW: POST-COUNT STOCK RECONCILIATION & STATS ---
+                for item in don.chi_tiet_don:
+                    drug = item.loai_thuoc_info
+                    if drug:
+                        # 1. Reconciliation: Adjust stock if Count != Request
+                        # If Counted (12) > Request (10) => Diff = 2 => Stock -= 2
+                        # If Counted (8) < Request (10) => Diff = -2 => Stock -= -2 (Increase)
+                        cnt = item.so_luong_dem_duoc or 0
+                        req = item.so_luong_yeu_cau
+                        diff = cnt - req
+                        
+                        drug.ton_kho_uoc_tinh -= diff
+                        
+                        # 2. Update Usage Stats
+                        drug.tong_luong_da_dem += cnt
+                        drug.so_lan_duoc_dem += 1
+            
             db.session.commit()
-            return jsonify({'success': True, 'msg': f'Đã lưu: {count}'})
+            
+            # Calculate progress
+            items_done = sum(1 for ct in don.chi_tiet_don if ct.so_luong_dem_duoc is not None)
+            items_total = len(list(don.chi_tiet_don))
+            
+            msg = f'Đã lưu: {count}'
+            if all_done:
+                if don.trang_thai_khop == TrangThaiKhopDonEnum.perfect:
+                    msg += ' (Đơn đã hoàn thành ✅)'
+                else:
+                    msg += ' (CẢNH BÁO: Đơn lệch số lượng! Đã đóng ⚠️)'
+            
+            return jsonify({
+                'success': True, 
+                'msg': msg,
+                'items_done': items_done,
+                'items_total': items_total,
+                'order_completed': all_done
+            })
         return jsonify({'success': True, 'msg': 'Đếm tự do xong'})
     except Exception as e:
         db.session.rollback()
@@ -1103,6 +1245,18 @@ def new_order():
             for d_id, qty in zip(drug_ids, quantities):
                 qty = int(qty)
                 if qty > 0:
+                    # Enforce strict stock checking
+                    drug = LoaiThuoc.query.with_for_update().get(int(d_id))
+                    if not drug: raise Exception(f"Không tìm thấy thuốc ID {d_id}")
+                    
+                    if drug.ton_kho_uoc_tinh < qty:
+                        db.session.rollback()
+                        flash(f'Lỗi: Thuốc "{drug.ten_thuoc}" không đủ tồn kho (Còn {drug.ton_kho_uoc_tinh}).', 'danger')
+                        return redirect(url_for('pharmacist.new_order'))
+                    
+                    # Deduct stock
+                    drug.ton_kho_uoc_tinh -= qty
+                    
                     ct = ChiTietDonThuoc(id_don_thuoc=new_don.id, id_loai_thuoc=int(d_id), so_luong_yeu_cau=qty, trang_thai_khop=TrangThaiKhopChiTietEnum.missing)
                     db.session.add(ct)
                     total_items += 1
@@ -1110,8 +1264,17 @@ def new_order():
             
             new_don.tong_so_loai_thuoc = total_items
             new_don.tong_vien_yeu_cau = total_pills
+            
+            # LOGGING
+            log = NhatKyHeThong(
+                loai_log=LoaiLogEnum.info,
+                noi_dung=f'Tạo đơn thuốc mới: {ma_don} gồm {total_items} loại ({total_pills} viên)',
+                id_nguoi_dung=current_user.id
+            )
+            db.session.add(log)
+            
             db.session.commit()
-            flash('Tạo đơn thành công!', 'success')
+            flash(f'Tạo đơn {ma_don} thành công!', 'success')
             return redirect(url_for('pharmacist.order_list'))
         except Exception as e:
             db.session.rollback()
@@ -1125,9 +1288,31 @@ def delete_order(order_id):
     if order.trang_thai_don == TrangThaiDonEnum.completed:
         flash('Không thể xóa đơn đã hoàn thành.', 'danger')
     else:
-        db.session.delete(order)
-        db.session.commit()
-        flash('Đã xóa đơn thuốc.', 'success')
+        try:
+            # REFUND STOCK BEFORE DELETING
+            # Loop through all items and return quantity to inventory
+            for item in order.chi_tiet_don:
+                # Use with_for_update to lock the row and prevent race conditions
+                drug = LoaiThuoc.query.with_for_update().get(item.id_loai_thuoc)
+                if drug:
+                    drug.ton_kho_uoc_tinh += item.so_luong_yeu_cau
+            
+            db.session.delete(order)
+            
+            # LOGGING
+            log = NhatKyHeThong(
+                loai_log=LoaiLogEnum.warning,
+                noi_dung=f'Xóa đơn thuốc: {order.ma_don_thuoc} và hoàn kho',
+                id_nguoi_dung=current_user.id
+            )
+            db.session.add(log)
+            
+            db.session.commit()
+            flash('Đã xóa đơn thuốc và hoàn lại tồn kho.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Lỗi khi xóa đơn: {str(e)}', 'danger')
+            
     return redirect(url_for('pharmacist.order_list'))
 
 @pharmacist.route('/order/edit/<int:order_id>', methods=['GET', 'POST'])

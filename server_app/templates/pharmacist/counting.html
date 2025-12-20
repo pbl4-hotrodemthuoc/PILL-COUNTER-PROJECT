@@ -58,6 +58,7 @@
                             <span>Yêu cầu:</span>
                             <strong id="reqQtyDisplay">0 viên</strong>
                         </div>
+                        <!-- DRUG STATS PANEL - TEMPORARILY DISABLED -->
                     </div>
 
                     <div id="free-panel" style="display: none;">
@@ -79,6 +80,10 @@
                     <div class="py-4 mt-auto mb-3 rounded-3 bg-light text-center border">
                         <span class="text-muted small text-uppercase fw-bold">KẾT QUẢ THỰC TẾ</span>
                         <h1 id="count" class="display-1 fw-bold text-dark my-1">0</h1>
+                        <div class="mb-2">
+                            <span class="small text-muted">Độ tin cậy: </span>
+                            <span id="confidenceDisplay" class="badge bg-info">--</span>
+                        </div>
                         <span id="status" class="badge bg-secondary px-3 py-2 rounded-pill">Chờ tín hiệu...</span>
                     </div>
 
@@ -116,6 +121,11 @@
     
     const presPanel = document.getElementById('prescription-panel');
     const freePanel = document.getElementById('free-panel');
+    
+    // Stats Elements
+    const drugStatsPanel = document.getElementById('drugStatsPanel');
+    const statsTotalCounted = document.getElementById('statsTotalCounted');
+    const statsFrequency = document.getElementById('statsFrequency');
     
     let currentMode = 'prescription';
     let currentImage = "";
@@ -174,14 +184,15 @@
                     data.items.forEach(item => {
                         const opt = document.createElement('option');
                         opt.value = item.detail_id;
-                        opt.dataset.qty = item.req_qty;
+                         opt.dataset.qty = item.req_qty;
+                        opt.dataset.total = item.total_counted; // Bind Stats
+                        opt.dataset.freq = item.times_counted;
                         
                         let label = `${item.drug_name} (Cần: ${item.req_qty})`;
                         if(item.is_done) {
                             label = `✅ ${label} - Xong`;
                             opt.style.color = "green";
-                            // Có thể disable hoặc để cho đếm lại tùy ý
-                            // opt.disabled = true; 
+                            opt.disabled = true; // Disable already counted drugs
                         }
                         opt.innerText = label;
                         itemSelect.appendChild(opt);
@@ -215,11 +226,20 @@
             const qty = opt.dataset.qty;
             reqQtyDisplay.innerText = `${qty} viên`;
             
+            // SHOW STATS PANEL - safely handle undefined
+            // (Panel temporarily disabled)
+            // const total = (opt.dataset.total && opt.dataset.total !== "undefined") ? opt.dataset.total : "0";
+            // const freq = (opt.dataset.freq && opt.dataset.freq !== "undefined") ? opt.dataset.freq : "0";
+            // if (statsTotalCounted) statsTotalCounted.innerText = `${total} viên`;
+            // if (statsFrequency) statsFrequency.innerText = `${freq} lần`;
+            // if (drugStatsPanel) drugStatsPanel.style.display = 'block';
+            
             // Gửi số lượng mục tiêu cho AI Server
             socket.emit('update_target', { target: qty });
             socket.emit('reset_counting'); // Mở khóa đếm mới
         } else {
             reqQtyDisplay.innerText = "0 viên";
+            // if (drugStatsPanel) drugStatsPanel.style.display = 'none';
         }
     }
 
@@ -234,6 +254,24 @@
         img.src = data.processed_image;
         currentImage = data.processed_image;
         countEl.innerText = data.count;
+        
+        // UPDATE CONFIDENCE DISPLAY
+        const confEl = document.getElementById('confidenceDisplay');
+        if (data.confidence !== undefined && data.confidence !== null) {
+            const confPercent = Math.round(data.confidence * 100);
+            confEl.innerText = confPercent + '%';
+            // Color code: Green >= 90%, Yellow 70-89%, Red < 70%
+            if (confPercent >= 90) {
+                confEl.className = 'badge bg-success';
+            } else if (confPercent >= 70) {
+                confEl.className = 'badge bg-warning text-dark';
+            } else {
+                confEl.className = 'badge bg-danger';
+            }
+        } else {
+            confEl.innerText = '--';
+            confEl.className = 'badge bg-info';
+        }
 
         if(data.is_locked) {
             statusEl.className = `badge bg-${data.status_color} px-3 py-2 rounded-pill`;
@@ -242,6 +280,13 @@
         } else {
             statusEl.innerText = data.status_text;
             statusEl.className = "badge bg-warning text-dark px-3 py-2 rounded-pill";
+            
+            // LOW CONFIDENCE WARNING
+            if (data.confidence && data.confidence < 0.9) {
+                statusEl.className = "badge bg-danger text-white px-3 py-2 rounded-pill animate__animated animate__flash";
+                statusEl.innerText = `⚠️ ĐỘ TIN CẬY THẤP (${Math.round(data.confidence * 100)}%)`;
+            }
+            
             if(!btnSave.disabled) setUIState(false);
         }
     });
@@ -270,6 +315,25 @@
             const detailId = itemSelect.value;
             if(!detailId) return alert("Chưa chọn thuốc!");
 
+            // GET REQUIRED QTY AND ACTUAL COUNT
+            const opt = itemSelect.options[itemSelect.selectedIndex];
+            const reqQty = parseInt(opt.dataset.qty) || 0;
+            const actualCount = parseInt(countEl.innerText) || 0;
+            const diff = actualCount - reqQty;
+
+            // VALIDATION: Block save if mismatch
+            if (diff !== 0) {
+                if (diff > 0) {
+                    // Over count
+                    alert(`⚠️ DƯ ${diff} VIÊN!\n\nYêu cầu: ${reqQty} viên\nĐã đếm: ${actualCount} viên\n\n👉 Hãy RÚT BỚT ${diff} viên rồi đếm lại.`);
+                } else {
+                    // Under count
+                    alert(`⚠️ THIẾU ${Math.abs(diff)} VIÊN!\n\nYêu cầu: ${reqQty} viên\nĐã đếm: ${actualCount} viên\n\n👉 Hãy BỎ THÊM ${Math.abs(diff)} viên rồi đếm lại.`);
+                }
+                socket.emit('reset_counting'); // Unlock for re-count
+                return; // BLOCK SAVE
+            }
+
             fetch('/pharmacist/api/save-result', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -283,9 +347,37 @@
             .then(r => r.json())
             .then(data => {
                 if(data.success) {
-                    alert("✅ " + data.msg);
-                    // Trick: Trigger lại change event để reload danh sách thuốc (cập nhật dấu tích xanh)
-                    orderSelect.dispatchEvent(new Event('change')); 
+                    // Build progress message
+                    let progressMsg = '';
+                    if (data.items_total) {
+                        progressMsg = `\n\n📊 Tiến độ: ${data.items_done}/${data.items_total} thuốc`;
+                    }
+                    
+                    if (data.order_completed) {
+                        // Order Completed - Show celebration
+                        if (data.msg.includes("CẢNH BÁO")) {
+                            alert("⚠️ " + data.msg + progressMsg);
+                        } else {
+                            alert("🎉 " + data.msg + progressMsg);
+                        }
+                        
+                        // Remove completed order from dropdown
+                        const completedOption = orderSelect.querySelector(`option[value="${orderSelect.value}"]`);
+                        if (completedOption) completedOption.remove();
+                        
+                        // Reset to default
+                        orderSelect.value = '';
+                        itemSelect.innerHTML = '<option value="">-- Chọn đơn trước --</option>';
+                        itemSelect.disabled = true;
+                        // if (drugStatsPanel) drugStatsPanel.style.display = 'none';
+                        reqQtyDisplay.innerText = '0 viên';
+                    } else {
+                        // Normal save - Show progress
+                        alert("✅ " + data.msg + progressMsg);
+                        // Reload item list to mark this one as done
+                        orderSelect.dispatchEvent(new Event('change')); 
+                    }
+                    
                     socket.emit('reset_counting');
                 } else {
                     alert("❌ Lỗi: " + data.msg);
