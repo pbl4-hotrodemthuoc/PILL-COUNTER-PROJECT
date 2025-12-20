@@ -1,0 +1,110 @@
+{% extends 'admin/layout.html' %}
+
+{% block title %}Quản Lý Thiết Bị{% endblock %}
+
+{% block content_header %}
+<h1 class="h3 mb-4 text-gray-800">Quản Lý Thiết Bị IoT</h1>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+
+    <!-- Cột Thông tin chính (7/12) -->
+    <div class="col-lg-7">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Thông tin Thiết bị</h6>
+            </div>
+            <div class="card-body">
+                <h4><strong>{{ device.ten_thiet_bi }}</strong></h4>
+                <hr>
+                <div class="row">
+                    <div class="col-sm-4">
+                        <h6 class="mb-0">Mã thiết bị</h6>
+                    </div>
+                    <div class="col-sm-8 text-secondary">
+                        {{ device.ma_thiet_bi }}
+                    </div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-sm-4">
+                        <h6 class="mb-0">Trạng thái</h6>
+                    </div>
+                    <div class="col-sm-8 text-secondary">
+                        {% if device.trang_thai == TrangThaiThietBiEnum.online %}
+                            <span class="badge badge-success p-2">
+                                <i class="fas fa-check-circle mr-1"></i> Đang hoạt động (Online)
+                            </span>
+                        {% else %}
+                            <span class="badge badge-danger p-2">
+                                <i class="fas fa-times-circle mr-1"></i> Ngoại tuyến (Offline)
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <hr>
+                 <div class="row">
+                    <div class="col-sm-4">
+                        <h6 class="mb-0">Vị trí</h6>
+                    </div>
+                    <div class="col-sm-8 text-secondary">
+                        Quầy thuốc số 1
+                    </div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-sm-4">
+                        <h6 class="mb-0">Lần kết nối cuối</h6>
+                    </div>
+                    <div class="col-sm-8 text-secondary">
+                        {{ device.lan_ket_noi_cuoi.strftime('%H:%M:%S %d-%m-%Y') if device.lan_ket_noi_cuoi else 'Chưa có thông tin' }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cột Thống kê và Hành động (5/12) -->
+    <div class="col-lg-5">
+        <!-- Thống kê -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Thống kê Hoạt động</h6>
+            </div>
+            <div class="card-body">
+                <div class="text-center">
+                    <h1 class="display-4 font-weight-bold">{{ device.tong_don_da_dem }}</h1>
+                    <p class="lead">Tổng số đơn đã xử lý</p>
+                </div>
+                <hr>
+                <p class="text-center text-muted small">
+                    Biểu đồ uptime/downtime sẽ được phát triển trong các phiên bản sau.
+                </p>
+            </div>
+        </div>
+
+        <!-- Hành động -->
+        <div class="card shadow mb-4">
+             <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Hành động Nâng cao</h6>
+            </div>
+            <div class="card-body text-center">
+                <p class="small text-muted">Các hành động này sẽ gửi lệnh trực tiếp đến thiết bị.</p>
+                <!-- Nút Khởi động lại -->
+                <form action="{{ url_for('admin.reboot_device', device_id=device.id) }}" method="POST" class="d-inline-block m-2" onsubmit="return confirm('Bạn có chắc chắn muốn khởi động lại thiết bị không?');">
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-power-off mr-2"></i>Khởi động lại
+                    </button>
+                </form>
+                <!-- Nút Chạy chẩn đoán -->
+                <form action="{{ url_for('admin.diagnose_device', device_id=device.id) }}" method="POST" class="d-inline-block m-2">
+                     <button type="submit" class="btn btn-info">
+                        <i class="fas fa-microchip mr-2"></i>Chạy chẩn đoán
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

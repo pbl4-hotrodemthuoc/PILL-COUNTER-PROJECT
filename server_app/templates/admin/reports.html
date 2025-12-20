@@ -1,0 +1,190 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Báo Cáo Tổng Hợp{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Báo Cáo Kinh Doanh & Phân Tích</h1>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card shadow mb-4">
+        <a href="#collapseFilterCard" class="d-block card-header py-3" data-toggle="collapse" role="button" aria-expanded="true" aria-controls="collapseFilterCard">
+            <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-filter mr-2"></i>Bộ lọc báo cáo</h6>
+        </a>
+        <!-- Card Content - Collapsible -->
+        <div class="collapse show" id="collapseFilterCard">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('admin.reports') }}">
+                    <!-- Time Range Selection -->
+                    <div class="form-group">
+                        <select class="form-control" id="timeRange" name="range" style="max-width: 350px;">
+                            <option value="today" {% if selected_range == 'today' %}selected{% endif %}>Hôm nay</option>
+                            <option value="7_days" {% if selected_range == '7_days' %}selected{% endif %}>7 ngày qua</option>
+                            <option value="this_month" {% if selected_range == 'this_month' %}selected{% endif %}>Tháng này</option>
+                            <option value="custom" {% if selected_range == 'custom' %}selected{% endif %}>Tùy chọn ngày...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Custom Date Range (Hidden by default) -->
+                    <div id="customDateRange" class="form-row mb-3" style="display: none; max-width: 450px;">
+                        <div class="col">
+                            <label for="start_date">Từ ngày</label>
+                            <input id="start_date" type="date" class="form-control" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') if start_date else '' }}">
+                        </div>
+                        <div class="col">
+                             <label for="end_date">Đến ngày</label>
+                             <input id="end_date" type="date" class="form-control" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') if end_date else '' }}">
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="form-group mt-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search mr-1"></i> Xem báo cáo
+                        </button>
+                        <a href="{{ url_for('admin.export_reports', range=selected_range, start_date=start_date.strftime('%Y-%m-%d') if start_date, end_date=end_date.strftime('%Y-%m-%d') if end_date) }}" class="btn btn-success">
+                            <i class="fas fa-file-excel mr-1"></i> Xuất Excel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Báo cáo Hiệu suất Dược sĩ -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Hiệu Suất Dược Sĩ</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Tên Dược Sĩ</th>
+                            <th>Tổng Số Đơn Đã Xử Lý</th>
+                            <th>Thời Gian Xử Lý Trung Bình (giây)</th>
+                            <th>Tỷ Lệ Chính Xác (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for perf in pharmacist_performance %}
+                        <tr>
+                            <td>{{ perf.ho_ten }}</td>
+                            <td>{{ perf.total_prescriptions }}</td>
+                            <td>{{ "%.2f"|format(perf.avg_time) if perf.avg_time else 'N/A' }}</td>
+                            <td>{{ perf.ty_le_chinh_xac if perf.ty_le_chinh_xac else 'N/A' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center">Không có dữ liệu cho khoảng thời gian đã chọn.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Báo cáo Top Thuốc -->
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Top 10 Thuốc Được Đếm Nhiều Nhất</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Tên Thuốc</th>
+                                    <th>Tổng Lượng Đã Đếm</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for drug in top_drugs %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>{{ drug.ten_thuoc }}</td>
+                                    <td>{{ drug.total_counted }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center">Không có dữ liệu.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Báo cáo Tồn Kho Thấp -->
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-danger">Danh Sách Thuốc Sắp Hết Hàng</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Tên Thuốc</th>
+                                    <th>Tồn Kho Ước Tính</th>
+                                    <th>Ngưỡng Cảnh Báo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for drug in low_stock_drugs %}
+                                <tr class="table-warning">
+                                    <td>{{ drug.ten_thuoc }}</td>
+                                    <td><span class="font-weight-bold text-danger">{{ drug.ton_kho_uoc_tinh }}</span></td>
+                                    <td>{{ drug.nguong_canh_bao }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center">Không có thuốc nào dưới ngưỡng cảnh báo.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<!-- Script để ẩn/hiện bộ lọc ngày tùy chỉnh -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const timeRangeSelect = document.getElementById('timeRange');
+    const customDateRangeDiv = document.getElementById('customDateRange');
+
+    function toggleCustomDateRange() {
+        if (timeRangeSelect.value === 'custom') {
+            customDateRangeDiv.style.display = 'flex';
+        } else {
+            customDateRangeDiv.style.display = 'none';
+        }
+    }
+
+    // Kiểm tra khi tải trang
+    toggleCustomDateRange();
+
+    // Lắng nghe sự kiện thay đổi
+    timeRangeSelect.addEventListener('change', toggleCustomDateRange);
+});
+</script>
+{% endblock %}

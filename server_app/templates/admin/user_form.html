@@ -1,0 +1,78 @@
+{% extends 'admin/layout.html' %}
+
+{% block title %}
+    {% if action == 'add' %}Thêm Người Dùng Mới{% else %}Chỉnh Sửa Người Dùng{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">
+        {% if action == 'add' %}Thêm Người Dùng Mới{% else %}Chỉnh Sửa Người Dùng: {{ user.ho_ten }}{% endif %}
+    </h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Tổng quan</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('admin.users') }}">Người dùng</a></li>
+        <li class="breadcrumb-item active">{% if action == 'add' %}Thêm mới{% else %}Chỉnh sửa{% endif %}</li>
+    </ol>
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-user-edit me-1"></i>
+            Thông tin người dùng
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{% if action == 'add' %}{{ url_for('admin.add_user') }}{% else %}{{ url_for('admin.edit_user', user_id=user.id) }}{% endif %}">
+                <div class="row gx-3 mb-3">
+                    <div class="col-md-6">
+                        <label for="ho_ten" class="form-label">Họ và tên</label>
+                        <input type="text" class="form-control" id="ho_ten" name="ho_ten" value="{{ user.ho_ten if user else '' }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="ten_dang_nhap" class="form-label">Tên đăng nhập</label>
+                        <input type="text" class="form-control" id="ten_dang_nhap" name="ten_dang_nhap" value="{{ user.ten_dang_nhap if user else '' }}" {% if action == 'edit' %}readonly{% endif %} required>
+                        {% if action == 'edit' %}<div class="form-text">Không thể thay đổi tên đăng nhập.</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="row gx-3 mb-3">
+                    <div class="col-md-6">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" value="{{ user.email if user else '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="so_dien_thoai" class="form-label">Số điện thoại</label>
+                        <input type="tel" class="form-control" id="so_dien_thoai" name="so_dien_thoai" value="{{ user.so_dien_thoai if user else '' }}">
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="mat_khau" class="form-label">Mật khẩu</label>
+                    <input type="password" class="form-control" id="mat_khau" name="mat_khau" {% if action == 'add' %}required{% endif %}>
+                    {% if action == 'edit' %}<div class="form-text">Để trống nếu không muốn thay đổi mật khẩu.</div>{% endif %}
+                </div>
+
+                <div class="row gx-3 mb-3">
+                    <div class="col-md-6">
+                        <label for="vai_tro" class="form-label">Vai trò</label>
+                        <select class="form-select" id="vai_tro" name="vai_tro" required>
+                            <option value="pharmacist" {% if user and user.vai_tro.name == 'pharmacist' %}selected{% endif %}>Dược sĩ</option>
+                            <option value="admin" {% if user and user.vai_tro.name == 'admin' %}selected{% endif %}>Quản trị viên</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="dang_hoat_dong" name="dang_hoat_dong" {% if user and user.dang_hoat_dong %}checked{% elif action == 'add' %}checked{% endif %}>
+                    <label class="form-check-label" for="dang_hoat_dong">
+                        Kích hoạt tài khoản
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-1"></i> Lưu lại
+                </button>
+                <a href="{{ url_for('admin.users') }}" class="btn btn-secondary">Hủy</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
