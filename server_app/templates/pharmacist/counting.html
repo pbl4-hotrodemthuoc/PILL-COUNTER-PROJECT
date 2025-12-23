@@ -6,13 +6,122 @@
 <div class="container-fluid py-3">
     <div class="row g-3">
         <div class="col-lg-8">
-            <div class="card bg-dark border-0 shadow overflow-hidden" style="height: 600px; border-radius: 12px;">
+            <!-- Camera View -->
+            <div class="card bg-dark border-0 shadow overflow-hidden" style="height: 480px; border-radius: 12px;">
                 <img id="serverImage" class="w-100 h-100" style="object-fit: contain; display: none;">
                 <div id="waiting" class="d-flex h-100 flex-column align-items-center justify-content-center text-white-50">
                     <div class="spinner-border text-primary mb-3"></div>
                     <h5>Đang kết nối Camera...</h5>
                 </div>
             </div>
+            
+            <!-- Panel Chi Tiết Viên Thuốc -->
+            <div class="card mt-3 border-0 shadow-sm overflow-hidden" id="pillsDetailCard">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center" 
+                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); cursor: pointer;"
+                     onclick="openPillsModal()">
+                    <span class="text-white fw-bold">
+                        <i class="bi bi-grid-3x3-gap-fill me-2"></i>Chi Tiết Viên Thuốc
+                    </span>
+                    <div>
+                        <span class="badge bg-light text-dark me-2" id="pillsBadge">0 viên</span>
+                        <i class="bi bi-arrows-fullscreen text-white"></i>
+                    </div>
+                </div>
+                <div class="card-body p-2" id="pillsGallery" style="max-height: 120px; overflow-x: auto; overflow-y: hidden; white-space: nowrap;">
+                    <div class="text-muted text-center py-3" id="pillsPlaceholder">
+                        <i class="bi bi-capsule fs-5 d-block mb-1 opacity-50"></i>
+                        <span class="small">Chờ đếm xong để xem chi tiết</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- MODAL POPUP: Danh sách viên thuốc dọc -->
+            <div class="modal fade" id="pillsModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header py-2" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <h6 class="modal-title text-white fw-bold">
+                                <i class="bi bi-capsule me-2"></i>Chi Tiết Viên Thuốc
+                            </h6>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-0" id="pillsModalBody" style="max-height: 400px; overflow-y: auto;">
+                            <!-- Danh sách dọc sẽ được render ở đây -->
+                        </div>
+                        <div class="modal-footer py-2 bg-light">
+                            <small class="text-muted">Bấm vào viên thuốc để xem chi tiết</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- CSS cho Pills Gallery -->
+            <style>
+                .pill-item {
+                    display: inline-block;
+                    text-align: center;
+                    margin: 0 4px;
+                    vertical-align: top;
+                    animation: fadeInScale 0.3s ease-out;
+                    cursor: pointer;
+                }
+                @keyframes fadeInScale {
+                    from { opacity: 0; transform: scale(0.8); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+                .pill-thumb {
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 8px;
+                    border: 3px solid transparent;
+                    object-fit: cover;
+                    transition: all 0.2s ease;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+                }
+                .pill-thumb:hover {
+                    transform: scale(1.15);
+                    z-index: 10;
+                }
+                .conf-high { border-color: #28a745 !important; }
+                .conf-mid { border-color: #ffc107 !important; }
+                .conf-low { border-color: #dc3545 !important; }
+                .conf-badge {
+                    font-size: 0.6rem;
+                    display: block;
+                    margin-top: 2px;
+                }
+                
+                /* Nút Xem thêm */
+                .show-more-circle {
+                    width: 60px; height: 60px;
+                    border-radius: 8px;
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    display: flex; align-items: center; justify-content: center;
+                    cursor: pointer; transition: all 0.2s;
+                }
+                .show-more-circle:hover { transform: scale(1.1); }
+                .show-more-text { color: white; font-weight: bold; font-size: 1rem; }
+                
+                /* Pill List Item trong Modal */
+                .pill-list-item {
+                    display: flex; align-items: center; padding: 10px 15px;
+                    border-bottom: 1px solid #eee; transition: background 0.2s;
+                }
+                .pill-list-item:hover { background: #f8f9fa; }
+                .pill-list-item:last-child { border-bottom: none; }
+                .pill-list-img {
+                    width: 60px; height: 60px;
+                    border-radius: 8px; object-fit: cover;
+                    border: 3px solid #ddd; margin-right: 15px;
+                }
+                .pill-list-info { flex: 1; }
+                .pill-list-id { font-weight: bold; color: #333; }
+                .pill-list-conf { font-size: 0.9rem; }
+                
+                #pillsGallery::-webkit-scrollbar { height: 5px; }
+                #pillsGallery::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+            </style>
         </div>
 
         <div class="col-lg-4">
@@ -272,6 +381,14 @@
             confEl.innerText = '--';
             confEl.className = 'badge bg-info';
         }
+        
+        // ===== PILLS DETAIL GALLERY =====
+        if (data.pills_detail !== null && data.pills_detail !== undefined) {
+            // Lưu lại để dùng cho modal
+            window.currentPillsData = data.pills_detail;
+            renderPillsGallery(data.pills_detail);
+        }
+        // ===== END PILLS DETAIL =====
 
         if(data.is_locked) {
             statusEl.className = `badge bg-${data.status_color} px-3 py-2 rounded-pill`;
@@ -388,5 +505,97 @@
             socket.emit('reset_counting');
         }
     });
+    
+    // ===== PILLS GALLERY FUNCTIONS =====
+    window.currentPillsData = [];
+    
+    function renderPillsGallery(pills) {
+        const gallery = document.getElementById('pillsGallery');
+        const badge = document.getElementById('pillsBadge');
+        
+        if (pills.length === 0) {
+            gallery.innerHTML = `
+                <div class="text-muted text-center py-3">
+                    <i class="bi bi-capsule fs-5 d-block mb-1 opacity-50"></i>
+                    <span class="small">Chờ đếm xong để xem chi tiết</span>
+                </div>
+            `;
+            badge.textContent = '0 viên';
+            badge.className = 'badge bg-secondary';
+            return;
+        }
+        
+        const SHOW_MAX = 8; // Hiện tối đa 8 viên trong gallery
+        let html = '';
+        
+        pills.slice(0, SHOW_MAX).forEach((pill, idx) => {
+            const confPercent = Math.round(pill.confidence * 100);
+            let confClass = confPercent >= 90 ? 'conf-high' : confPercent >= 70 ? 'conf-mid' : 'conf-low';
+            let badgeClass = confPercent >= 90 ? 'success' : confPercent >= 70 ? 'warning' : 'danger';
+            
+            html += `
+                <div class="pill-item" onclick="openPillsModal()">
+                    <img src="${pill.image}" class="pill-thumb ${confClass}" alt="Pill ${pill.id}">
+                    <span class="conf-badge badge bg-${badgeClass}">${confPercent}%</span>
+                </div>
+            `;
+        });
+        
+        // Nút xem thêm nếu có nhiều hơn SHOW_MAX
+        if (pills.length > SHOW_MAX) {
+            const remaining = pills.length - SHOW_MAX;
+            html += `
+                <div class="pill-item" onclick="openPillsModal()">
+                    <div class="show-more-circle">
+                        <span class="show-more-text">+${remaining}</span>
+                    </div>
+                    <span class="conf-badge text-muted">Xem thêm</span>
+                </div>
+            `;
+        }
+        
+        gallery.innerHTML = html;
+        badge.textContent = pills.length + ' viên';
+        badge.className = 'badge bg-light text-dark';
+    }
+    
+    // Mở modal hiển thị danh sách dọc
+    window.openPillsModal = function() {
+        const pills = window.currentPillsData || [];
+        const modalBody = document.getElementById('pillsModalBody');
+        
+        if (pills.length === 0) {
+            modalBody.innerHTML = `
+                <div class="text-muted text-center py-5">
+                    <i class="bi bi-capsule fs-1 d-block mb-2 opacity-50"></i>
+                    <p>Chưa có dữ liệu viên thuốc</p>
+                </div>
+            `;
+        } else {
+            let html = '';
+            pills.forEach((pill, idx) => {
+                const confPercent = Math.round(pill.confidence * 100);
+                let badgeClass = confPercent >= 90 ? 'success' : confPercent >= 70 ? 'warning' : 'danger';
+                let borderColor = confPercent >= 90 ? '#28a745' : confPercent >= 70 ? '#ffc107' : '#dc3545';
+                
+                html += `
+                    <div class="pill-list-item">
+                        <img src="${pill.image}" class="pill-list-img" style="border-color: ${borderColor}">
+                        <div class="pill-list-info">
+                            <div class="pill-list-id">Viên #${pill.id}</div>
+                            <div class="pill-list-conf">
+                                Độ tin cậy: <span class="badge bg-${badgeClass}">${confPercent}%</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            modalBody.innerHTML = html;
+        }
+        
+        // Mở modal
+        const modal = new bootstrap.Modal(document.getElementById('pillsModal'));
+        modal.show();
+    };
 </script>
 {% endblock %}

@@ -647,6 +647,44 @@ def cv2_to_base64(img):
     _, buf = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 60])
     return "data:image/jpeg;base64," + base64.b64encode(buf).decode('utf-8')
 
+def crop_pill_thumbnail(frame, box, max_size=80):
+    """
+    Crop một viên thuốc từ frame gốc và resize về thumbnail.
+    Args:
+        frame: Ảnh gốc (numpy array BGR)
+        box: YOLO box object chứa tọa độ
+        max_size: Kích thước tối đa của thumbnail
+    Returns:
+        base64 string của ảnh thumbnail
+    """
+    try:
+        x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+        # Đảm bảo tọa độ không vượt ra ngoài frame
+        h, w = frame.shape[:2]
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(w, x2), min(h, y2)
+        
+        # Crop viên thuốc
+        crop = frame[y1:y2, x1:x2]
+        if crop.size == 0:
+            return None
+            
+        # Resize về max_size giữ tỉ lệ
+        ch, cw = crop.shape[:2]
+        scale = min(max_size/cw, max_size/ch) if cw > 0 and ch > 0 else 1
+        new_w, new_h = int(cw * scale), int(ch * scale)
+        if new_w > 0 and new_h > 0:
+            crop_resized = cv2.resize(crop, (new_w, new_h))
+        else:
+            return None
+        
+        # Encode thành base64
+        _, buf = cv2.imencode('.jpg', crop_resized, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
+        return "data:image/jpeg;base64," + base64.b64encode(buf).decode('utf-8')
+    except Exception as e:
+        return None
+
+
 # --- SOCKET EVENTS ---
 @socketio.on('update_target')
 def handle_target(data):
@@ -673,6 +711,8 @@ def handle_pi_stream(data):
         display_count = 0
         avg_conf = 0.0
         process_time = 0
+        pills_detail = []  # Chỉ có dữ liệu khi LẦN ĐẦU LOCKED
+        send_pills = False  # Flag để gửi pills_detail 1 lần duy nhất
         
         if model:
             if not state['locked']:
@@ -682,22 +722,54 @@ def handle_pi_stream(data):
                 process_time = speed['preprocess'] + speed['inference'] + speed['postprocess']
                 boxes = results[0].boxes
                 cnt = len(boxes)
+                
                 if cnt > 0 and hasattr(boxes, 'conf'): 
                     avg_conf = float(boxes.conf.mean())
 
+                # Lưu frame gốc TRƯỚC KHI vẽ boxes (để crop thumbnails sau)
+                frame_original = frame.copy()
+                
+                # Vẽ boxes lên frame
                 frame = results[0].plot()
 
                 if cnt == state['last_val']: state['stable_count'] += 1
                 else: state['stable_count'] = 0; state['last_val'] = cnt
                 
+                # LOCKED: Crop thumbnails MỘT LẦN DUY NHẤT
                 if state['stable_count'] >= STABLE_THRESHOLD:
                     state['locked'] = True
                     state['final_val'] = cnt
-                    print(f"🔒 LOCKED: {cnt}")
+                    
+                    # Crop thumbnails từ frame gốc đã lưu
+                    if cnt > 0:
+                        for i, box in enumerate(boxes):
+                            if i >= 30: break  # Giới hạn 30 viên
+                            conf = float(box.conf[0])
+                            thumb = crop_pill_thumbnail(frame_original, box, max_size=70)
+                            if thumb:
+                                pills_detail.append({
+                                    'id': i + 1,
+                                    'confidence': round(conf, 3),
+                                    'image': thumb
+                                })
+                        pills_detail.sort(key=lambda x: x['confidence'], reverse=True)
+                    
+                    state['locked_pills_detail'] = pills_detail
+                    state['pills_sent'] = False  # Chưa gửi
+                    send_pills = True  # Đánh dấu cần gửi lần này
+                    print(f"🔒 LOCKED: {cnt} viên ({len(pills_detail)} thumbnails)")
                 
                 display_count = cnt
             else:
+                # ĐÃ KHÓA - Không gửi lại pills_detail
                 display_count = state['final_val']
+                
+                # Chỉ gửi pills_detail nếu chưa gửi
+                if not state.get('pills_sent', False):
+                    pills_detail = state.get('locked_pills_detail', [])
+                    send_pills = True
+                    state['pills_sent'] = True
+                
                 cv2.rectangle(frame, (0,0), (frame.shape[1], frame.shape[0]), (0, 255, 0), 4)
                 cv2.putText(frame, f"LOCKED: {display_count}", (30, 50), 
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -714,6 +786,7 @@ def handle_pi_stream(data):
         else:
             if display_count > 0: status = "Chờ ổn định..."
         
+        # Chỉ gửi pills_detail khi cần (1 lần duy nhất)
         emit('ai_result', {
             'processed_image': cv2_to_base64(frame),
             'count': display_count,
@@ -722,7 +795,8 @@ def handle_pi_stream(data):
             'percent': percent,
             'is_locked': state['locked'],
             'confidence': avg_conf,
-            'inference_time': process_time
+            'inference_time': process_time,
+            'pills_detail': pills_detail if send_pills else None  # None = không cập nhật
         }, broadcast=True)
 
     except Exception: pass
