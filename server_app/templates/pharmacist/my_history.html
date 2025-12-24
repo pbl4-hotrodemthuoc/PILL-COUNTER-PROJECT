@@ -17,24 +17,19 @@
                 <div class="row g-3 align-items-end">
                     <div class="col-lg-4 col-md-6">
                         <label for="search_ma_don_thuoc" class="form-label fw-bold small">Tìm theo mã đơn thuốc</label>
-                        <input type="text" class="form-control" id="search_ma_don_thuoc" name="search_ma_don_thuoc" placeholder="Nhập mã đơn thuốc..." value="{{ current_filters.search_ma_don_thuoc }}">
+                        <input type="text" class="form-control" id="search_ma_don_thuoc" name="search_ma_don_thuoc"
+                            placeholder="Nhập mã đơn thuốc..." value="{{ current_filters.search_ma_don_thuoc }}">
                     </div>
-                    <div class="col-lg-3 col-md-6">
+                    <div class="col-lg-4 col-md-6">
                         <label for="filter_date_range" class="form-label fw-bold small">Lọc theo ngày hoàn thành</label>
-                        <input type="text" class="form-control" id="filter_date_range" name="filter_date_range" value="{{ current_filters.filter_date_range }}">
+                        <input type="text" class="form-control" id="filter_date_range" name="filter_date_range"
+                            value="{{ current_filters.filter_date_range }}">
                     </div>
-                    <div class="col-lg-2 col-md-6">
-                        <label for="filter_trang_thai_khop" class="form-label fw-bold small">Trạng thái khớp</label>
-                        <select class="form-select" id="filter_trang_thai_khop" name="filter_trang_thai_khop">
-                            <option value="">Tất cả</option>
-                            <option value="perfect" {% if current_filters.filter_trang_thai_khop == 'perfect' %}selected{% endif %}>Khớp hoàn toàn</option>
-                            <option value="partial" {% if current_filters.filter_trang_thai_khop == 'partial' %}selected{% endif %}>Khớp một phần</option>
-                            <option value="mismatch" {% if current_filters.filter_trang_thai_khop == 'mismatch' %}selected{% endif %}>Sai lệch</option>
-                        </select>
-                    </div>
-                    <div class="col-lg-3 col-md-6 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search me-2"></i>Tìm kiếm</button>
-                        <a href="{{ url_for('pharmacist.my_history') }}" class="btn btn-outline-secondary w-100"><i class="bi bi-eraser me-2"></i>Xóa lọc</a>
+                    <div class="col-lg-4 col-md-12 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search me-2"></i>Tìm
+                            kiếm</button>
+                        <a href="{{ url_for('pharmacist.my_history') }}" class="btn btn-outline-secondary w-100"><i
+                                class="bi bi-eraser me-2"></i>Xóa lọc</a>
                     </div>
                 </div>
             </form>
@@ -53,70 +48,67 @@
                         <tr>
                             <th scope="col" class="ps-4">Mã Đơn Thuốc</th>
                             <th scope="col">Thời Gian Hoàn Thành</th>
-                            <th scope="col">Số Viên (YC/Đếm)</th>
-                            <th scope="col">Trạng Thái Khớp</th>
+                            <th scope="col" class="text-center">Số Loại Thuốc</th>
+                            <th scope="col" class="text-center">Tổng Số Viên</th>
                             <th scope="col" class="text-center">Hành Động</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% if orders and orders.items %}
-                            {% for order in orders.items %}
-                                <tr>
-                                    <td class="ps-4 fw-bold">{{ order.ma_don_thuoc }}</td>
-                                    <td>{{ order.thoi_gian_ket_thuc.strftime('%H:%M - %d/%m/%Y') if order.thoi_gian_ket_thuc else 'N/A' }}</td>
-                                    <td>{{ order.tong_vien_yeu_cau }} / {{ order.tong_vien_dem_duoc }}</td>
-                                    <td>
-                                        {% if order.trang_thai_khop.name == 'perfect' %}
-                                            <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i> Khớp hoàn toàn</span>
-                                        {% elif order.trang_thai_khop.name == 'partial' %}
-                                            <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-circle-fill me-1"></i> Khớp một phần</span>
-                                        {% elif order.trang_thai_khop.name == 'mismatch' %}
-                                            <span class="badge bg-danger"><i class="bi bi-x-circle-fill me-1"></i> Sai lệch</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">Chưa xác định</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        <button class="btn btn-sm btn-outline-primary" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#orderDetailModal"
-                                                data-order-id="{{ order.id }}">
-                                            <i class="bi bi-eye-fill me-1"></i> Xem chi tiết
-                                        </button>
-                                    </td>
-                                </tr>
-                            {% endfor %}
+                        {% for order in orders.items %}
+                        <tr>
+                            <td class="ps-4 fw-bold">{{ order.ma_don_thuoc }}</td>
+                            <td>{{ order.thoi_gian_ket_thuc.strftime('%H:%M - %d/%m/%Y') if order.thoi_gian_ket_thuc
+                                else 'N/A' }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-info">{{ order.chi_tiet_don|list|length }} loại</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="fw-bold text-success">{{ order.tong_vien_dem_duoc }} viên</span>
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                    data-bs-target="#orderDetailModal" data-order-id="{{ order.id }}">
+                                    <i class="bi bi-eye-fill me-1"></i> Xem chi tiết
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
                         {% else %}
-                            <tr>
-                                <td colspan="5" class="text-center p-5">
-                                    <i class="bi bi-file-earmark-x fs-2 text-muted mb-2"></i>
-                                    <p class="mb-0">Không tìm thấy đơn thuốc nào phù hợp.</p>
-                                </td>
-                            </tr>
+                        <tr>
+                            <td colspan="5" class="text-center p-5">
+                                <i class="bi bi-file-earmark-x fs-2 text-muted mb-2"></i>
+                                <p class="mb-0">Không tìm thấy đơn thuốc nào phù hợp.</p>
+                            </td>
+                        </tr>
                         {% endif %}
                     </tbody>
                 </table>
             </div>
         </div>
-        
+
         {% if orders and orders.pages > 1 %}
         <div class="card-footer bg-white d-flex justify-content-end">
             <nav>
                 <ul class="pagination mb-0">
                     <li class="page-item {% if not orders.has_prev %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('pharmacist.my_history', page=orders.prev_num, **current_filters) }}">Trước</a>
+                        <a class="page-link"
+                            href="{{ url_for('pharmacist.my_history', page=orders.prev_num, **current_filters) }}">Trước</a>
                     </li>
                     {% for page_num in orders.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
-                        {% if page_num %}
-                            <li class="page-item {% if orders.page == page_num %}active{% endif %}">
-                                <a class="page-link" href="{{ url_for('pharmacist.my_history', page=page_num, **current_filters) }}">{{ page_num }}</a>
-                            </li>
-                        {% else %}
-                            <li class="page-item disabled"><span class="page-link">...</span></li>
-                        {% endif %}
+                    {% if page_num %}
+                    <li class="page-item {% if orders.page == page_num %}active{% endif %}">
+                        <a class="page-link"
+                            href="{{ url_for('pharmacist.my_history', page=page_num, **current_filters) }}">{{ page_num
+                            }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
                     {% endfor %}
                     <li class="page-item {% if not orders.has_next %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('pharmacist.my_history', page=orders.next_num, **current_filters) }}">Sau</a>
+                        <a class="page-link"
+                            href="{{ url_for('pharmacist.my_history', page=orders.next_num, **current_filters) }}">Sau</a>
                     </li>
                 </ul>
             </nav>
@@ -130,7 +122,8 @@
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="orderDetailModalLabel">Chi Tiết Đơn Thuốc: <span id="modalOrderCode" class="fw-bold"></span></h5>
+                <h5 class="modal-title" id="orderDetailModalLabel">Chi Tiết Đơn Thuốc: <span id="modalOrderCode"
+                        class="fw-bold"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -143,26 +136,37 @@
                 <div id="modalContent" class="d-none">
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Dược sĩ xử lý:</strong> <span id="modalPharmacist"></span></p>
-                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Thời gian tạo:</strong> <span id="modalCreatedAt"></span></p>
-                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Thời gian hoàn thành:</strong> <span id="modalCompletedAt"></span></p>
-                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Thời gian xử lý:</strong> <span id="modalProcessingTime"></span> giây</p>
+                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Dược sĩ xử lý:</strong>
+                                <span id="modalPharmacist"></span>
+                            </p>
+                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Thời gian tạo:</strong>
+                                <span id="modalCreatedAt"></span>
+                            </p>
+                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Thời gian hoàn
+                                    thành:</strong>
+                                <span id="modalCompletedAt"></span>
+                            </p>
                         </div>
                         <div class="col-md-6">
-                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Tổng viên yêu cầu:</strong> <span id="modalTotalRequested"></span></p>
-                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Tổng viên đếm được:</strong> <span id="modalTotalCounted"></span></p>
-                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Ghi chú dược sĩ:</strong> <span id="modalPharmacistNotes" class="fst-italic"></span></p>
-                             <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Ghi chú hệ thống:</strong> <span id="modalSystemNotes" class="fst-italic"></span></p>
+                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Số loại thuốc:</strong>
+                                <span id="modalTotalTypes" class="badge bg-info"></span>
+                            </p>
+                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Tổng số viên:</strong>
+                                <span id="modalTotalCounted" class="fw-bold text-success"></span>
+                            </p>
+                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Thời gian xử
+                                    lý:</strong>
+                                <span id="modalProcessingTime"></span> giây
+                            </p>
                         </div>
                     </div>
-                    <table class="table table-bordered">
+                    <h6 class="fw-bold mb-2"><i class="bi bi-list-ul"></i> Danh sách thuốc:</h6>
+                    <table class="table table-bordered table-sm">
                         <thead class="table-light">
                             <tr>
-                                <th scope="col">#</th>
+                                <th scope="col" class="text-center" style="width: 50px;">#</th>
                                 <th scope="col">Tên Thuốc</th>
-                                <th scope="col" class="text-center">Yêu Cầu</th>
-                                <th scope="col" class="text-center">Đếm Được</th>
-                                <th scope="col" class="text-center">Chênh Lệch</th>
+                                <th scope="col" class="text-center" style="width: 120px;">Số Lượng</th>
                             </tr>
                         </thead>
                         <tbody id="modalOrderDetailsBody"></tbody>
@@ -185,102 +189,91 @@
 <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
 
 <script>
-$(function() {
-    $('#filter_date_range').daterangepicker({
-        autoUpdateInput: false,
-        locale: {
-            cancelLabel: 'Xóa',
-            applyLabel: 'Chọn',
-            format: 'DD/MM/YYYY',
-            "daysOfWeek": ["CN", "T2", "T3", "T4", "T5", "T6", "T7"],
-            "monthNames": ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"],
-        }
-    });
-
-    $('#filter_date_range').on('apply.daterangepicker', function(ev, picker) {
-        $(this).val(picker.startDate.format('DD/MM/YYYY') + ' - ' + picker.endDate.format('DD/MM/YYYY'));
-    });
-
-    $('#filter_date_range').on('cancel.daterangepicker', function(ev, picker) {
-        $(this).val('');
-    });
-
-    const orderDetailModal = document.getElementById('orderDetailModal');
-    const modalLoader = document.getElementById('modalLoader');
-    const modalContent = document.getElementById('modalContent');
-    const modalOrderCode = document.getElementById('modalOrderCode');
-    const modalPharmacist = document.getElementById('modalPharmacist');
-    const modalCreatedAt = document.getElementById('modalCreatedAt');
-    const modalCompletedAt = document.getElementById('modalCompletedAt');
-    const modalProcessingTime = document.getElementById('modalProcessingTime');
-    const modalTotalRequested = document.getElementById('modalTotalRequested');
-    const modalTotalCounted = document.getElementById('modalTotalCounted');
-    const modalPharmacistNotes = document.getElementById('modalPharmacistNotes');
-    const modalSystemNotes = document.getElementById('modalSystemNotes');
-    const modalOrderDetailsBody = document.getElementById('modalOrderDetailsBody');
-
-    orderDetailModal.addEventListener('show.bs.modal', async function (event) {
-        modalLoader.innerHTML = `<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Đang tải dữ liệu...</p>`;
-        modalLoader.classList.remove('d-none');
-        modalContent.classList.add('d-none');
-        modalOrderDetailsBody.innerHTML = ''; 
-
-        const button = event.relatedTarget;
-        const orderId = button.getAttribute('data-order-id');
-
-        try {
-            // ===================================================================
-            // SỬA LỖI Ở ĐÂY: Thêm tiền tố '/pharmacist' vào URL của API
-            // ===================================================================
-            const response = await fetch(`/pharmacist/api/order-details/${orderId}`);
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const errorMessage = errorData.error || `Lỗi HTTP: ${response.status} NOT FOUND`;
-                throw new Error(errorMessage);
+    $(function () {
+        $('#filter_date_range').daterangepicker({
+            autoUpdateInput: false,
+            locale: {
+                cancelLabel: 'Xóa',
+                applyLabel: 'Chọn',
+                format: 'DD/MM/YYYY',
+                "daysOfWeek": ["CN", "T2", "T3", "T4", "T5", "T6", "T7"],
+                "monthNames": ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"],
             }
-            
-            const data = await response.json();
+        });
 
-            // Populate modal with data
-            modalOrderCode.textContent = data.ma_don_thuoc;
-            modalPharmacist.textContent = data.duoc_si_xu_ly;
-            modalCreatedAt.textContent = data.thoi_gian_tao_don;
-            modalCompletedAt.textContent = data.thoi_gian_ket_thuc;
-            modalProcessingTime.textContent = data.thoi_gian_xu_ly_giay || 'N/A';
-            modalTotalRequested.textContent = data.tong_vien_yeu_cau;
-            modalTotalCounted.textContent = data.tong_vien_dem_duoc;
-            modalPharmacistNotes.textContent = data.ghi_chu_duoc_si || 'Không có';
-            modalSystemNotes.textContent = data.ghi_chu_he_thong || 'Không có';
+        $('#filter_date_range').on('apply.daterangepicker', function (ev, picker) {
+            $(this).val(picker.startDate.format('DD/MM/YYYY') + ' - ' + picker.endDate.format('DD/MM/YYYY'));
+        });
 
-            data.chi_tiet.forEach((item, index) => {
-                const rowClass = item.chenh_lech !== 0 ? 'table-warning' : '';
-                const chenhLechText = item.chenh_lech > 0 ? `+${item.chenh_lech}` : item.chenh_lech;
-                const row = `
-                    <tr class="${rowClass}">
-                        <th scope="row">${index + 1}</th>
+        $('#filter_date_range').on('cancel.daterangepicker', function (ev, picker) {
+            $(this).val('');
+        });
+
+        const orderDetailModal = document.getElementById('orderDetailModal');
+        const modalLoader = document.getElementById('modalLoader');
+        const modalContent = document.getElementById('modalContent');
+        const modalOrderCode = document.getElementById('modalOrderCode');
+        const modalPharmacist = document.getElementById('modalPharmacist');
+        const modalCreatedAt = document.getElementById('modalCreatedAt');
+        const modalCompletedAt = document.getElementById('modalCompletedAt');
+        const modalProcessingTime = document.getElementById('modalProcessingTime');
+        const modalTotalTypes = document.getElementById('modalTotalTypes');
+        const modalTotalCounted = document.getElementById('modalTotalCounted');
+        const modalOrderDetailsBody = document.getElementById('modalOrderDetailsBody');
+
+        orderDetailModal.addEventListener('show.bs.modal', async function (event) {
+            modalLoader.innerHTML = `<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Đang tải dữ liệu...</p>`;
+            modalLoader.classList.remove('d-none');
+            modalContent.classList.add('d-none');
+            modalOrderDetailsBody.innerHTML = '';
+
+            const button = event.relatedTarget;
+            const orderId = button.getAttribute('data-order-id');
+
+            try {
+                const response = await fetch(`/pharmacist/api/order-details/${orderId}`);
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    const errorMessage = errorData.error || `Lỗi HTTP: ${response.status} NOT FOUND`;
+                    throw new Error(errorMessage);
+                }
+
+                const data = await response.json();
+
+                // Populate modal with data
+                modalOrderCode.textContent = data.ma_don_thuoc;
+                modalPharmacist.textContent = data.duoc_si_xu_ly;
+                modalCreatedAt.textContent = data.thoi_gian_tao_don;
+                modalCompletedAt.textContent = data.thoi_gian_ket_thuc;
+                modalProcessingTime.textContent = data.thoi_gian_xu_ly_giay || 'N/A';
+                modalTotalTypes.textContent = `${data.chi_tiet.length} loại`;
+                modalTotalCounted.textContent = `${data.tong_vien_dem_duoc} viên`;
+
+                data.chi_tiet.forEach((item, index) => {
+                    const row = `
+                    <tr>
+                        <td class="text-center">${index + 1}</td>
                         <td>${item.ten_thuoc}</td>
-                        <td class="text-center">${item.so_luong_yeu_cau}</td>
-                        <td class="text-center">${item.so_luong_dem_duoc}</td>
-                        <td class="text-center fw-bold">${chenhLechText}</td>
+                        <td class="text-center fw-bold">${item.so_luong_dem_duoc} viên</td>
                     </tr>
                 `;
-                modalOrderDetailsBody.innerHTML += row;
-            });
+                    modalOrderDetailsBody.innerHTML += row;
+                });
 
-            modalLoader.classList.add('d-none');
-            modalContent.classList.remove('d-none');
+                modalLoader.classList.add('d-none');
+                modalContent.classList.remove('d-none');
 
-        } catch (error) {
-            console.error('Lỗi khi xử lý chi tiết đơn thuốc:', error);
-            modalLoader.innerHTML = `
+            } catch (error) {
+                console.error('Lỗi khi xử lý chi tiết đơn thuốc:', error);
+                modalLoader.innerHTML = `
                 <div class="text-center p-5 text-danger">
                     <i class="bi bi-exclamation-triangle-fill fs-2 mb-2"></i>
                     <p class="fw-bold">Không thể tải chi tiết đơn thuốc</p>
                     <p class="small">${error.message}</p>
                 </div>`;
-        }
+            }
+        });
     });
-});
 </script>
 {% endblock %}

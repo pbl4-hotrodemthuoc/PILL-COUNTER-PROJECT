@@ -9,17 +9,18 @@
             <!-- Camera View -->
             <div class="card bg-dark border-0 shadow overflow-hidden" style="height: 480px; border-radius: 12px;">
                 <img id="serverImage" class="w-100 h-100" style="object-fit: contain; display: none;">
-                <div id="waiting" class="d-flex h-100 flex-column align-items-center justify-content-center text-white-50">
+                <div id="waiting"
+                    class="d-flex h-100 flex-column align-items-center justify-content-center text-white-50">
                     <div class="spinner-border text-primary mb-3"></div>
                     <h5>Đang kết nối Camera...</h5>
                 </div>
             </div>
-            
+
             <!-- Panel Chi Tiết Viên Thuốc -->
             <div class="card mt-3 border-0 shadow-sm overflow-hidden" id="pillsDetailCard">
-                <div class="card-header py-2 d-flex justify-content-between align-items-center" 
-                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); cursor: pointer;"
-                     onclick="openPillsModal()">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center"
+                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); cursor: pointer;"
+                    onclick="openPillsModal()">
                     <span class="text-white fw-bold">
                         <i class="bi bi-grid-3x3-gap-fill me-2"></i>Chi Tiết Viên Thuốc
                     </span>
@@ -28,19 +29,21 @@
                         <i class="bi bi-arrows-fullscreen text-white"></i>
                     </div>
                 </div>
-                <div class="card-body p-2" id="pillsGallery" style="max-height: 120px; overflow-x: auto; overflow-y: hidden; white-space: nowrap;">
+                <div class="card-body p-2" id="pillsGallery"
+                    style="max-height: 120px; overflow-x: auto; overflow-y: hidden; white-space: nowrap;">
                     <div class="text-muted text-center py-3" id="pillsPlaceholder">
                         <i class="bi bi-capsule fs-5 d-block mb-1 opacity-50"></i>
                         <span class="small">Chờ đếm xong để xem chi tiết</span>
                     </div>
                 </div>
             </div>
-            
+
             <!-- MODAL POPUP: Danh sách viên thuốc dọc -->
             <div class="modal fade" id="pillsModal" tabindex="-1">
                 <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
                     <div class="modal-content">
-                        <div class="modal-header py-2" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <div class="modal-header py-2"
+                            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                             <h6 class="modal-title text-white fw-bold">
                                 <i class="bi bi-capsule me-2"></i>Chi Tiết Viên Thuốc
                             </h6>
@@ -55,7 +58,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- CSS cho Pills Gallery -->
             <style>
                 .pill-item {
@@ -66,10 +69,19 @@
                     animation: fadeInScale 0.3s ease-out;
                     cursor: pointer;
                 }
+
                 @keyframes fadeInScale {
-                    from { opacity: 0; transform: scale(0.8); }
-                    to { opacity: 1; transform: scale(1); }
+                    from {
+                        opacity: 0;
+                        transform: scale(0.8);
+                    }
+
+                    to {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
                 }
+
                 .pill-thumb {
                     width: 60px;
                     height: 60px;
@@ -77,50 +89,102 @@
                     border: 3px solid transparent;
                     object-fit: cover;
                     transition: all 0.2s ease;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
                 }
+
                 .pill-thumb:hover {
                     transform: scale(1.15);
                     z-index: 10;
                 }
-                .conf-high { border-color: #28a745 !important; }
-                .conf-mid { border-color: #ffc107 !important; }
-                .conf-low { border-color: #dc3545 !important; }
+
+                .conf-high {
+                    border-color: #28a745 !important;
+                }
+
+                .conf-mid {
+                    border-color: #ffc107 !important;
+                }
+
+                .conf-low {
+                    border-color: #dc3545 !important;
+                }
+
                 .conf-badge {
                     font-size: 0.6rem;
                     display: block;
                     margin-top: 2px;
                 }
-                
+
                 /* Nút Xem thêm */
                 .show-more-circle {
-                    width: 60px; height: 60px;
+                    width: 60px;
+                    height: 60px;
                     border-radius: 8px;
                     background: linear-gradient(135deg, #667eea, #764ba2);
-                    display: flex; align-items: center; justify-content: center;
-                    cursor: pointer; transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.2s;
                 }
-                .show-more-circle:hover { transform: scale(1.1); }
-                .show-more-text { color: white; font-weight: bold; font-size: 1rem; }
-                
+
+                .show-more-circle:hover {
+                    transform: scale(1.1);
+                }
+
+                .show-more-text {
+                    color: white;
+                    font-weight: bold;
+                    font-size: 1rem;
+                }
+
                 /* Pill List Item trong Modal */
                 .pill-list-item {
-                    display: flex; align-items: center; padding: 10px 15px;
-                    border-bottom: 1px solid #eee; transition: background 0.2s;
+                    display: flex;
+                    align-items: center;
+                    padding: 10px 15px;
+                    border-bottom: 1px solid #eee;
+                    transition: background 0.2s;
                 }
-                .pill-list-item:hover { background: #f8f9fa; }
-                .pill-list-item:last-child { border-bottom: none; }
+
+                .pill-list-item:hover {
+                    background: #f8f9fa;
+                }
+
+                .pill-list-item:last-child {
+                    border-bottom: none;
+                }
+
                 .pill-list-img {
-                    width: 60px; height: 60px;
-                    border-radius: 8px; object-fit: cover;
-                    border: 3px solid #ddd; margin-right: 15px;
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 8px;
+                    object-fit: cover;
+                    border: 3px solid #ddd;
+                    margin-right: 15px;
                 }
-                .pill-list-info { flex: 1; }
-                .pill-list-id { font-weight: bold; color: #333; }
-                .pill-list-conf { font-size: 0.9rem; }
-                
-                #pillsGallery::-webkit-scrollbar { height: 5px; }
-                #pillsGallery::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+
+                .pill-list-info {
+                    flex: 1;
+                }
+
+                .pill-list-id {
+                    font-weight: bold;
+                    color: #333;
+                }
+
+                .pill-list-conf {
+                    font-size: 0.9rem;
+                }
+
+                #pillsGallery::-webkit-scrollbar {
+                    height: 5px;
+                }
+
+                #pillsGallery::-webkit-scrollbar-thumb {
+                    background: #c1c1c1;
+                    border-radius: 3px;
+                }
             </style>
         </div>
 
@@ -142,7 +206,7 @@
                 </div>
 
                 <div class="card-body d-flex flex-column">
-                    
+
                     <div id="prescription-panel">
                         <div class="mb-3">
                             <label class="small text-muted fw-bold">1. Chọn đơn hàng:</label>
@@ -182,7 +246,8 @@
                         </div>
                         <div class="mb-3">
                             <label class="small text-muted fw-bold">Nhập số lượng đếm:</label>
-                            <input type="number" id="manualTarget" class="form-control text-center fs-5 font-monospace" value="0">
+                            <input type="number" id="manualTarget" class="form-control text-center fs-5 font-monospace"
+                                value="0">
                         </div>
                     </div>
 
@@ -215,6 +280,14 @@
 <script>
     const socket = io();
     
+    // Thông báo backend khi vào/rời trang counting
+    socket.on('connect', () => {
+        socket.emit('join_counting');
+    });
+    window.addEventListener('beforeunload', () => {
+        socket.emit('leave_counting');
+    });
+
     // --- UI ELEMENTS ---
     const img = document.getElementById('serverImage');
     const countEl = document.getElementById('count');
@@ -222,31 +295,41 @@
     const btnSave = document.getElementById('btnSave');
     const btnReset = document.getElementById('btnReset');
     const waiting = document.getElementById('waiting');
-    
+
     const orderSelect = document.getElementById('orderSelect');
     const itemSelect = document.getElementById('itemSelect');
     const reqQtyDisplay = document.getElementById('reqQtyDisplay');
     const manualTarget = document.getElementById('manualTarget');
-    
+
     const presPanel = document.getElementById('prescription-panel');
     const freePanel = document.getElementById('free-panel');
-    
+
     // Stats Elements
     const drugStatsPanel = document.getElementById('drugStatsPanel');
     const statsTotalCounted = document.getElementById('statsTotalCounted');
     const statsFrequency = document.getElementById('statsFrequency');
-    
+
     let currentMode = 'prescription';
     let currentImage = "";
 
     // --- 1. CHUYỂN TAB (THEO ĐƠN / TỰ DO) ---
-    window.setMode = function(mode) {
+    window.setMode = function (mode) {
         currentMode = mode;
         socket.emit('reset_counting');
         countEl.innerText = "0";
         setUIState(false);
+        
+        // Toggle active class cho các tab
+        const tabButtons = document.querySelectorAll('.nav-link');
+        tabButtons.forEach(btn => {
+            btn.classList.remove('active');
+            if ((mode === 'prescription' && btn.textContent.includes('Theo Đơn')) ||
+                (mode === 'free' && btn.textContent.includes('Tự Do'))) {
+                btn.classList.add('active');
+            }
+        });
 
-        if(mode === 'prescription') {
+        if (mode === 'prescription') {
             presPanel.style.display = 'block';
             freePanel.style.display = 'none';
             // Cập nhật lại target từ dropdown đơn thuốc
@@ -261,14 +344,14 @@
     };
 
     // --- 2. XỬ LÝ CHỌN ĐƠN HÀNG (Load thuốc từ API) ---
-    orderSelect.addEventListener('change', function() {
+    orderSelect.addEventListener('change', function () {
         const orderId = this.value;
-        
+
         // Reset giao diện
         itemSelect.innerHTML = '<option>Đang tải dữ liệu...</option>';
         itemSelect.disabled = true;
         reqQtyDisplay.innerText = "0 viên";
-        
+
         if (!orderId) {
             itemSelect.innerHTML = '<option value="">-- Chọn đơn trước --</option>';
             return;
@@ -280,10 +363,10 @@
             .then(res => res.json())
             .then(data => {
                 console.log("API Response:", data); // Xem log trên trình duyệt (F12)
-                
-                if(data.success && data.items.length > 0) {
+
+                if (data.success && data.items.length > 0) {
                     itemSelect.innerHTML = ''; // Xóa hết option cũ
-                    
+
                     // Thêm option mặc định
                     const defaultOpt = document.createElement('option');
                     defaultOpt.text = "-- Chọn thuốc cần đếm --";
@@ -293,12 +376,12 @@
                     data.items.forEach(item => {
                         const opt = document.createElement('option');
                         opt.value = item.detail_id;
-                         opt.dataset.qty = item.req_qty;
+                        opt.dataset.qty = item.req_qty;
                         opt.dataset.total = item.total_counted; // Bind Stats
                         opt.dataset.freq = item.times_counted;
-                        
+
                         let label = `${item.drug_name} (Cần: ${item.req_qty})`;
-                        if(item.is_done) {
+                        if (item.is_done) {
                             label = `✅ ${label} - Xong`;
                             opt.style.color = "green";
                             opt.disabled = true; // Disable already counted drugs
@@ -308,10 +391,10 @@
                     });
 
                     itemSelect.disabled = false; // Mở khóa dropdown
-                    
+
                     // [TỰ ĐỘNG CHỌN] Chọn thuốc đầu tiên chưa xong (nếu có)
                     const firstPending = Array.from(itemSelect.options).find(o => o.value && !o.disabled);
-                    if(firstPending) {
+                    if (firstPending) {
                         itemSelect.value = firstPending.value;
                         triggerItemChange(); // Kích hoạt logic cập nhật số lượng
                     }
@@ -331,10 +414,10 @@
 
     function triggerItemChange() {
         const opt = itemSelect.options[itemSelect.selectedIndex];
-        if(opt && opt.value) {
+        if (opt && opt.value) {
             const qty = opt.dataset.qty;
             reqQtyDisplay.innerText = `${qty} viên`;
-            
+
             // SHOW STATS PANEL - safely handle undefined
             // (Panel temporarily disabled)
             // const total = (opt.dataset.total && opt.dataset.total !== "undefined") ? opt.dataset.total : "0";
@@ -342,7 +425,7 @@
             // if (statsTotalCounted) statsTotalCounted.innerText = `${total} viên`;
             // if (statsFrequency) statsFrequency.innerText = `${freq} lần`;
             // if (drugStatsPanel) drugStatsPanel.style.display = 'block';
-            
+
             // Gửi số lượng mục tiêu cho AI Server
             socket.emit('update_target', { target: qty });
             socket.emit('reset_counting'); // Mở khóa đếm mới
@@ -353,8 +436,8 @@
     }
 
     // --- 4. CÁC LOGIC KHÁC (GIỮ NGUYÊN) ---
-    manualTarget.addEventListener('input', function() {
-        if(currentMode === 'free') socket.emit('update_target', { target: parseInt(this.value) || 0 });
+    manualTarget.addEventListener('input', function () {
+        if (currentMode === 'free') socket.emit('update_target', { target: parseInt(this.value) || 0 });
     });
 
     socket.on('ai_result', (data) => {
@@ -363,7 +446,7 @@
         img.src = data.processed_image;
         currentImage = data.processed_image;
         countEl.innerText = data.count;
-        
+
         // UPDATE CONFIDENCE DISPLAY
         const confEl = document.getElementById('confidenceDisplay');
         if (data.confidence !== undefined && data.confidence !== null) {
@@ -381,7 +464,7 @@
             confEl.innerText = '--';
             confEl.className = 'badge bg-info';
         }
-        
+
         // ===== PILLS DETAIL GALLERY =====
         if (data.pills_detail !== null && data.pills_detail !== undefined) {
             // Lưu lại để dùng cho modal
@@ -390,30 +473,70 @@
         }
         // ===== END PILLS DETAIL =====
 
-        if(data.is_locked) {
+        if (data.is_locked) {
             statusEl.className = `badge bg-${data.status_color} px-3 py-2 rounded-pill`;
             statusEl.innerText = "ĐÃ CHỐT: " + data.status_text;
-            setUIState(true);
+            // Truyền status_text để biết có khớp không
+            setUIState(true, data.status_text);
         } else {
             statusEl.innerText = data.status_text;
             statusEl.className = "badge bg-warning text-dark px-3 py-2 rounded-pill";
-            
+
             // LOW CONFIDENCE WARNING
             if (data.confidence && data.confidence < 0.9) {
                 statusEl.className = "badge bg-danger text-white px-3 py-2 rounded-pill animate__animated animate__flash";
                 statusEl.innerText = `⚠️ ĐỘ TIN CẬY THẤP (${Math.round(data.confidence * 100)}%)`;
             }
-            
-            if(!btnSave.disabled) setUIState(false);
+
+            if (!btnSave.disabled) setUIState(false);
         }
     });
 
-    function setUIState(isLocked) {
-        if(isLocked) {
-            btnSave.disabled = false;
-            btnSave.className = "btn btn-success w-100 py-2 fw-bold shadow";
-            btnSave.innerHTML = '<i class="bi bi-check-lg"></i> LƯU KẾT QUẢ';
+    // ===== MOTION DETECTION - TỰ ĐỘNG RESET KHI CÓ CHUYỂN ĐỘNG =====
+    socket.on('count_status_update', (data) => {
+        if (!data.is_locked) {
+            // Reset UI
+            setUIState(false);
+
+            // Thông báo nếu do motion detected
+            if (data.reason === 'motion_detected') {
+                statusEl.className = "badge bg-info text-white px-3 py-2 rounded-pill animate__animated animate__pulse";
+                statusEl.innerText = "🔄 Phát hiện thay đổi - Đếm lại...";
+
+                // Xóa gallery cũ
+                const pillsContainer = document.getElementById('pillsContainer');
+                if (pillsContainer) {
+                    pillsContainer.innerHTML = '<span class="text-muted small">Đang đếm lại...</span>';
+                }
+                window.currentPillsData = [];
+            }
+        }
+    });
+
+    function setUIState(isLocked, statusText = '') {
+        if (isLocked) {
             img.style.border = "5px solid #198754";
+            
+            // Chế độ TỰ DO: Không cho lưu, chỉ hiển thị kết quả
+            if (currentMode === 'free') {
+                btnSave.disabled = true;
+                btnSave.className = "btn btn-info w-100 py-2 fw-bold";
+                btnSave.innerHTML = '<i class="bi bi-eye"></i> CHẾ ĐỘ XEM (KHÔNG LƯU)';
+                return;
+            }
+            
+            // Chế độ THEO ĐƠN: Chỉ cho lưu khi KHỚP
+            const isMatch = statusText === 'Khớp';
+            if (isMatch) {
+                btnSave.disabled = false;
+                btnSave.className = "btn btn-success w-100 py-2 fw-bold shadow";
+                btnSave.innerHTML = '<i class="bi bi-check-lg"></i> LƯU KẾT QUẢ';
+            } else {
+                // Không khớp (thiếu hoặc dư) - Hiển thị cảnh báo, không cho lưu
+                btnSave.disabled = true;
+                btnSave.className = "btn btn-warning w-100 py-2 fw-bold";
+                btnSave.innerHTML = '<i class="bi bi-exclamation-triangle"></i> CHƯA KHỚP - ĐẾM LẠI';
+            }
         } else {
             btnSave.disabled = true;
             btnSave.className = "btn btn-secondary w-100 py-2 fw-bold";
@@ -427,10 +550,10 @@
         setUIState(false);
     });
 
-    btnSave.addEventListener('click', function() {
-        if(currentMode === 'prescription') {
+    btnSave.addEventListener('click', function () {
+        if (currentMode === 'prescription') {
             const detailId = itemSelect.value;
-            if(!detailId) return alert("Chưa chọn thuốc!");
+            if (!detailId) return alert("Chưa chọn thuốc!");
 
             // GET REQUIRED QTY AND ACTUAL COUNT
             const opt = itemSelect.options[itemSelect.selectedIndex];
@@ -438,22 +561,15 @@
             const actualCount = parseInt(countEl.innerText) || 0;
             const diff = actualCount - reqQty;
 
-            // VALIDATION: Block save if mismatch
+            // VALIDATION FALLBACK: Nút đã disabled khi không khớp, nhưng giữ check này như lớp bảo vệ
             if (diff !== 0) {
-                if (diff > 0) {
-                    // Over count
-                    alert(`⚠️ DƯ ${diff} VIÊN!\n\nYêu cầu: ${reqQty} viên\nĐã đếm: ${actualCount} viên\n\n👉 Hãy RÚT BỚT ${diff} viên rồi đếm lại.`);
-                } else {
-                    // Under count
-                    alert(`⚠️ THIẾU ${Math.abs(diff)} VIÊN!\n\nYêu cầu: ${reqQty} viên\nĐã đếm: ${actualCount} viên\n\n👉 Hãy BỎ THÊM ${Math.abs(diff)} viên rồi đếm lại.`);
-                }
-                socket.emit('reset_counting'); // Unlock for re-count
+                alert(`⚠️ Số lượng chưa khớp! Vui lòng đếm lại.`);
                 return; // BLOCK SAVE
             }
 
             fetch('/pharmacist/api/save-result', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     mode: 'prescription',
                     detail_id: detailId,
@@ -461,58 +577,58 @@
                     image: currentImage
                 })
             })
-            .then(r => r.json())
-            .then(data => {
-                if(data.success) {
-                    // Build progress message
-                    let progressMsg = '';
-                    if (data.items_total) {
-                        progressMsg = `\n\n📊 Tiến độ: ${data.items_done}/${data.items_total} thuốc`;
-                    }
-                    
-                    if (data.order_completed) {
-                        // Order Completed - Show celebration
-                        if (data.msg.includes("CẢNH BÁO")) {
-                            alert("⚠️ " + data.msg + progressMsg);
-                        } else {
-                            alert("🎉 " + data.msg + progressMsg);
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        // Build progress message
+                        let progressMsg = '';
+                        if (data.items_total) {
+                            progressMsg = `\n\n📊 Tiến độ: ${data.items_done}/${data.items_total} thuốc`;
                         }
-                        
-                        // Remove completed order from dropdown
-                        const completedOption = orderSelect.querySelector(`option[value="${orderSelect.value}"]`);
-                        if (completedOption) completedOption.remove();
-                        
-                        // Reset to default
-                        orderSelect.value = '';
-                        itemSelect.innerHTML = '<option value="">-- Chọn đơn trước --</option>';
-                        itemSelect.disabled = true;
-                        // if (drugStatsPanel) drugStatsPanel.style.display = 'none';
-                        reqQtyDisplay.innerText = '0 viên';
+
+                        if (data.order_completed) {
+                            // Order Completed - Show celebration
+                            if (data.msg.includes("CẢNH BÁO")) {
+                                alert("⚠️ " + data.msg + progressMsg);
+                            } else {
+                                alert("🎉 " + data.msg + progressMsg);
+                            }
+
+                            // Remove completed order from dropdown
+                            const completedOption = orderSelect.querySelector(`option[value="${orderSelect.value}"]`);
+                            if (completedOption) completedOption.remove();
+
+                            // Reset to default
+                            orderSelect.value = '';
+                            itemSelect.innerHTML = '<option value="">-- Chọn đơn trước --</option>';
+                            itemSelect.disabled = true;
+                            // if (drugStatsPanel) drugStatsPanel.style.display = 'none';
+                            reqQtyDisplay.innerText = '0 viên';
+                        } else {
+                            // Normal save - Show progress
+                            alert("✅ " + data.msg + progressMsg);
+                            // Reload item list to mark this one as done
+                            orderSelect.dispatchEvent(new Event('change'));
+                        }
+
+                        socket.emit('reset_counting');
                     } else {
-                        // Normal save - Show progress
-                        alert("✅ " + data.msg + progressMsg);
-                        // Reload item list to mark this one as done
-                        orderSelect.dispatchEvent(new Event('change')); 
+                        alert("❌ Lỗi: " + data.msg);
                     }
-                    
-                    socket.emit('reset_counting');
-                } else {
-                    alert("❌ Lỗi: " + data.msg);
-                }
-            });
+                });
         } else {
             alert("Đếm tự do: Xong!");
             socket.emit('reset_counting');
         }
     });
-    
+
     // ===== PILLS GALLERY FUNCTIONS =====
     window.currentPillsData = [];
-    
+
     function renderPillsGallery(pills) {
         const gallery = document.getElementById('pillsGallery');
         const badge = document.getElementById('pillsBadge');
-        
+
         if (pills.length === 0) {
             gallery.innerHTML = `
                 <div class="text-muted text-center py-3">
@@ -524,15 +640,15 @@
             badge.className = 'badge bg-secondary';
             return;
         }
-        
+
         const SHOW_MAX = 8; // Hiện tối đa 8 viên trong gallery
         let html = '';
-        
+
         pills.slice(0, SHOW_MAX).forEach((pill, idx) => {
             const confPercent = Math.round(pill.confidence * 100);
             let confClass = confPercent >= 90 ? 'conf-high' : confPercent >= 70 ? 'conf-mid' : 'conf-low';
             let badgeClass = confPercent >= 90 ? 'success' : confPercent >= 70 ? 'warning' : 'danger';
-            
+
             html += `
                 <div class="pill-item" onclick="openPillsModal()">
                     <img src="${pill.image}" class="pill-thumb ${confClass}" alt="Pill ${pill.id}">
@@ -540,7 +656,7 @@
                 </div>
             `;
         });
-        
+
         // Nút xem thêm nếu có nhiều hơn SHOW_MAX
         if (pills.length > SHOW_MAX) {
             const remaining = pills.length - SHOW_MAX;
@@ -553,17 +669,17 @@
                 </div>
             `;
         }
-        
+
         gallery.innerHTML = html;
         badge.textContent = pills.length + ' viên';
         badge.className = 'badge bg-light text-dark';
     }
-    
+
     // Mở modal hiển thị danh sách dọc
-    window.openPillsModal = function() {
+    window.openPillsModal = function () {
         const pills = window.currentPillsData || [];
         const modalBody = document.getElementById('pillsModalBody');
-        
+
         if (pills.length === 0) {
             modalBody.innerHTML = `
                 <div class="text-muted text-center py-5">
@@ -577,7 +693,7 @@
                 const confPercent = Math.round(pill.confidence * 100);
                 let badgeClass = confPercent >= 90 ? 'success' : confPercent >= 70 ? 'warning' : 'danger';
                 let borderColor = confPercent >= 90 ? '#28a745' : confPercent >= 70 ? '#ffc107' : '#dc3545';
-                
+
                 html += `
                     <div class="pill-list-item">
                         <img src="${pill.image}" class="pill-list-img" style="border-color: ${borderColor}">
@@ -592,7 +708,7 @@
             });
             modalBody.innerHTML = html;
         }
-        
+
         // Mở modal
         const modal = new bootstrap.Modal(document.getElementById('pillsModal'));
         modal.show();

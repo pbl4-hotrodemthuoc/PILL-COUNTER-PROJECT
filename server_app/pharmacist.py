@@ -609,13 +609,17 @@ pharmacist = Blueprint('pharmacist', __name__)
 # =====================================================
 
 STABLE_THRESHOLD = 8
+MOTION_THRESHOLD = 5.0  # Ngưỡng % pixels thay đổi để coi là có chuyển động
 
 state = {
     'target': 0,        
     'stable_count': 0,
     'last_val': -1,
     'final_val': 0,
-    'locked': False     
+    'locked': False,
+    'prev_frame': None,  # Lưu frame trước để phát hiện chuyển động
+    'motion_cooldown': 0,  # Cooldown để tránh reset liên tục
+    'counting_clients': 0  # Số clients đang ở trang counting
 }
 
 # --- LOAD MODEL YOLO ---
@@ -694,6 +698,36 @@ def handle_target(data):
     state['last_val'] = -1
     print(f"🎯 Mục tiêu: {state['target']} viên")
 
+# Set lưu session ID của clients đang ở trang counting
+counting_sessions = set()
+
+@socketio.on('join_counting')
+def handle_join_counting():
+    from flask import request
+    sid = request.sid
+    if sid not in counting_sessions:
+        counting_sessions.add(sid)
+        state['counting_clients'] = len(counting_sessions)
+        print(f"👁️ Client vào trang counting ({state['counting_clients']} clients)")
+
+@socketio.on('leave_counting')
+def handle_leave_counting():
+    from flask import request
+    sid = request.sid
+    if sid in counting_sessions:
+        counting_sessions.discard(sid)
+        state['counting_clients'] = len(counting_sessions)
+        print(f"👋 Client rời trang counting ({state['counting_clients']} clients)")
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    from flask import request
+    sid = request.sid
+    if sid in counting_sessions:
+        counting_sessions.discard(sid)
+        state['counting_clients'] = len(counting_sessions)
+        print(f"🔌 Client disconnect - auto leave counting ({state['counting_clients']} clients)")
+
 @socketio.on('reset_counting')
 def handle_reset():
     state['locked'] = False
@@ -705,6 +739,10 @@ def handle_reset():
 @socketio.on('process_frame_pi')
 def handle_pi_stream(data):
     try:
+        # Skip nếu không có client nào ở trang counting
+        if state.get('counting_clients', 0) <= 0:
+            return
+        
         frame = base64_to_cv2(data.get('image'))
         if frame is None: return
 
@@ -740,10 +778,9 @@ def handle_pi_stream(data):
                     state['locked'] = True
                     state['final_val'] = cnt
                     
-                    # Crop thumbnails từ frame gốc đã lưu
+                    # Crop thumbnails từ frame gốc đã lưu - KHÔNG GIỚI HẠN SỐ LƯỢNG
                     if cnt > 0:
                         for i, box in enumerate(boxes):
-                            if i >= 30: break  # Giới hạn 30 viên
                             conf = float(box.conf[0])
                             thumb = crop_pill_thumbnail(frame_original, box, max_size=70)
                             if thumb:
@@ -755,14 +792,49 @@ def handle_pi_stream(data):
                         pills_detail.sort(key=lambda x: x['confidence'], reverse=True)
                     
                     state['locked_pills_detail'] = pills_detail
+                    state['locked_confidence'] = avg_conf  # Lưu confidence khi LOCKED
                     state['pills_sent'] = False  # Chưa gửi
+                    state['prev_frame'] = frame_original.copy()  # Lưu frame GỐC (chưa vẽ) để motion detection
                     send_pills = True  # Đánh dấu cần gửi lần này
                     print(f"🔒 LOCKED: {cnt} viên ({len(pills_detail)} thumbnails)")
                 
                 display_count = cnt
             else:
-                # ĐÃ KHÓA - Không gửi lại pills_detail
+                # ĐÃ KHÓA - Kiểm tra có chuyển động không
                 display_count = state['final_val']
+                avg_conf = state.get('locked_confidence', 0)  # Lấy confidence đã lưu
+                
+                # Motion Detection: So sánh frame hiện tại với frame đã lưu
+                if state['prev_frame'] is not None and state['motion_cooldown'] <= 0:
+                    # Convert sang grayscale để so sánh
+                    gray_curr = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    gray_prev = cv2.cvtColor(state['prev_frame'], cv2.COLOR_BGR2GRAY)
+                    
+                    # Resize nếu kích thước khác nhau
+                    if gray_curr.shape != gray_prev.shape:
+                        gray_prev = cv2.resize(gray_prev, (gray_curr.shape[1], gray_curr.shape[0]))
+                    
+                    # Tính độ khác biệt
+                    diff = cv2.absdiff(gray_curr, gray_prev)
+                    _, thresh = cv2.threshold(diff, 30, 255, cv2.THRESH_BINARY)
+                    motion_percent = (np.count_nonzero(thresh) / thresh.size) * 100
+                    
+                    # Debug: In ra để xem motion_percent
+                    print(f"📊 Motion: {motion_percent:.2f}% (threshold: {MOTION_THRESHOLD}%)")
+                    
+                    # Nếu có chuyển động lớn → Reset
+                    if motion_percent > MOTION_THRESHOLD:
+                        print(f"🔄 MOTION DETECTED ({motion_percent:.1f}%) - Auto Reset!")
+                        state['locked'] = False
+                        state['stable_count'] = 0
+                        state['last_val'] = -1
+                        state['motion_cooldown'] = 5  # Cooldown 5 frames
+                        emit('count_status_update', {'is_locked': False, 'reason': 'motion_detected'}, broadcast=True)
+                        return  # Thoát sớm, frame tiếp theo sẽ đếm lại
+                
+                # Giảm cooldown
+                if state['motion_cooldown'] > 0:
+                    state['motion_cooldown'] -= 1
                 
                 # Chỉ gửi pills_detail nếu chưa gửi
                 if not state.get('pills_sent', False):
@@ -891,7 +963,9 @@ def my_history():
     filter_date_range = request.args.get('filter_date_range', '').strip()
     filter_trang_thai_khop = request.args.get('filter_trang_thai_khop', '').strip()
 
-    query = DonThuoc.query.filter_by(id_duoc_si=current_user.id).order_by(DonThuoc.thoi_gian_ket_thuc.desc())
+    # Thêm joinedload để load chi_tiet_don relationship
+    from sqlalchemy.orm import joinedload
+    query = DonThuoc.query.options(joinedload(DonThuoc.chi_tiet_don)).filter_by(id_duoc_si=current_user.id).order_by(DonThuoc.thoi_gian_ket_thuc.desc())
 
     if search_ma_don_thuoc:
         query = query.filter(DonThuoc.ma_don_thuoc.ilike(f'%{search_ma_don_thuoc}%'))
@@ -925,7 +999,7 @@ def my_history():
                            orders=orders, 
                            current_filters=current_filters)
 
-# --- ROUTE STATS ĐÃ FIX LỖI ---
+# --- ROUTE STATS ĐÃ REDESIGN ---
 @pharmacist.route('/stats')
 @login_required
 def my_stats():
@@ -943,59 +1017,56 @@ def my_stats():
     )
 
     total_orders = base_query.count()
+    
+    # Tổng viên đếm được
     pills_query = db.session.query(
-        func.sum(ChiTietDonThuoc.so_luong_dem_duoc),
-        func.sum(ChiTietDonThuoc.so_luong_yeu_cau)
+        func.sum(ChiTietDonThuoc.so_luong_dem_duoc)
     ).join(DonThuoc, ChiTietDonThuoc.id_don_thuoc == DonThuoc.id)\
      .filter(
         DonThuoc.id_duoc_si == current_user.id,
         DonThuoc.trang_thai_don == 'completed',
         func.date(DonThuoc.thoi_gian_ket_thuc).between(start_date, end_date)
-    ).first()
+    ).scalar()
 
     avg_time_query = base_query.with_entities(func.avg(DonThuoc.thoi_gian_xu_ly_giay)).scalar()
+    
+    # Số loại thuốc khác nhau đã đếm
+    total_drug_types = db.session.query(
+        func.count(func.distinct(ChiTietDonThuoc.id_loai_thuoc))
+    ).join(DonThuoc, ChiTietDonThuoc.id_don_thuoc == DonThuoc.id)\
+     .filter(
+        DonThuoc.id_duoc_si == current_user.id,
+        DonThuoc.trang_thai_don == 'completed',
+        func.date(DonThuoc.thoi_gian_ket_thuc).between(start_date, end_date)
+    ).scalar() or 0
 
     summary_stats = {
         'total_orders': total_orders,
-        'total_pills_counted': int(pills_query[0] or 0),
-        'total_pills_requested': int(pills_query[1] or 0),
-        'avg_processing_time': round(float(avg_time_query or 0), 1)
+        'total_pills_counted': int(pills_query or 0),
+        'avg_processing_time': round(float(avg_time_query or 0), 1),
+        'total_drug_types': total_drug_types
     }
 
+    # TREND CHART: Số đơn, số viên, thời gian xử lý theo ngày
     trend_data = db.session.query(
         func.date(DonThuoc.thoi_gian_ket_thuc).label('date'),
-        func.avg(DonThuoc.thoi_gian_xu_ly_giay).label('avg_time'),
-        (func.sum(DonThuoc.tong_vien_dem_duoc) * 100.0 / func.sum(DonThuoc.tong_vien_yeu_cau)).label('accuracy')
+        func.count(DonThuoc.id).label('order_count'),
+        func.sum(DonThuoc.tong_vien_dem_duoc).label('pill_count'),
+        func.avg(DonThuoc.thoi_gian_xu_ly_giay).label('avg_time')
     ).filter(
         DonThuoc.id_duoc_si == current_user.id,
         DonThuoc.trang_thai_don == 'completed',
-        DonThuoc.tong_vien_yeu_cau > 0,
         func.date(DonThuoc.thoi_gian_ket_thuc).between(start_date, end_date)
     ).group_by('date').order_by('date').all()
 
     trend_chart_data = {
         'labels': [d.date.strftime('%d/%m') for d in trend_data],
-        'accuracy_data': [round(float(d.accuracy or 0), 2) for d in trend_data],
+        'order_data': [int(d.order_count or 0) for d in trend_data],
+        'pill_data': [int(d.pill_count or 0) for d in trend_data],
         'time_data': [round(float(d.avg_time or 0), 1) for d in trend_data]
     }
 
-    error_query = db.session.query(
-        func.sum(case((ChiTietDonThuoc.chenh_lech < 0, func.abs(ChiTietDonThuoc.chenh_lech)), else_=0)).label('under'),
-        func.sum(case((ChiTietDonThuoc.chenh_lech > 0, ChiTietDonThuoc.chenh_lech), else_=0)).label('over')
-    ).join(DonThuoc, ChiTietDonThuoc.id_don_thuoc == DonThuoc.id)\
-     .filter(
-        DonThuoc.id_duoc_si == current_user.id,
-        DonThuoc.trang_thai_don == 'completed',
-        func.date(DonThuoc.thoi_gian_ket_thuc).between(start_date, end_date)
-    ).first()
-
-    pie_chart_data = {
-        'under_count': int(error_query.under or 0),
-        'over_count': int(error_query.over or 0),
-        'total_errors': int(error_query.under or 0) + int(error_query.over or 0)
-    }
-
-    # TOP 5 THUỐC ĐẾM NHIỀU NHẤT
+    # TOP 5 THUỐC ĐẾM NHIỀU NHẤT (cho Doughnut chart)
     top_counted_drugs = db.session.query(
         LoaiThuoc.ten_thuoc,
         func.sum(ChiTietDonThuoc.so_luong_dem_duoc).label('total')
@@ -1008,28 +1079,15 @@ def my_stats():
     ).group_by(LoaiThuoc.id)\
      .order_by(func.sum(ChiTietDonThuoc.so_luong_dem_duoc).desc())\
      .limit(5).all()
-
-    # TOP 5 THUỐC HAY ĐẾM SAI (Accuracy thấp)
-    top_inaccurate_drugs = db.session.query(
-        LoaiThuoc.ten_thuoc,
-        (func.sum(ChiTietDonThuoc.so_luong_dem_duoc) * 100.0 / func.sum(ChiTietDonThuoc.so_luong_yeu_cau)).label('accuracy')
-    ).join(ChiTietDonThuoc, LoaiThuoc.id == ChiTietDonThuoc.id_loai_thuoc)\
-     .join(DonThuoc, ChiTietDonThuoc.id_don_thuoc == DonThuoc.id)\
-     .filter(
-        DonThuoc.id_duoc_si == current_user.id,
-        DonThuoc.trang_thai_don == 'completed',
-        ChiTietDonThuoc.chenh_lech != 0,
-        func.date(DonThuoc.thoi_gian_ket_thuc).between(start_date, end_date)
-    ).group_by(LoaiThuoc.id)\
-     .order_by((func.sum(ChiTietDonThuoc.so_luong_dem_duoc) * 100.0 / func.sum(ChiTietDonThuoc.so_luong_yeu_cau)).asc())\
-     .limit(5).all()
+    
+    # 5 ĐƠN THUỐC GẦN ĐÂY
+    recent_orders = base_query.order_by(DonThuoc.thoi_gian_ket_thuc.desc()).limit(5).all()
 
     return render_template('pharmacist/my_stats.html', period=period, 
                            summary_stats=summary_stats, 
                            trend_chart_data=trend_chart_data, 
-                           pie_chart_data=pie_chart_data,
-                           top_counted_drugs=top_counted_drugs, 
-                           top_inaccurate_drugs=top_inaccurate_drugs)
+                           top_counted_drugs=top_counted_drugs,
+                           recent_orders=recent_orders)
 
 @pharmacist.route('/report-incident', methods=['GET', 'POST'])
 @login_required
