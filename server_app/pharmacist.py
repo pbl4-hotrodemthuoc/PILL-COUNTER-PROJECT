@@ -739,7 +739,22 @@ def handle_reset():
 @socketio.on('process_frame_pi')
 def handle_pi_stream(data):
     try:
-        # Skip nếu không có client nào ở trang counting
+        # Cập nhật thông tin thiết bị (IP, thời gian kết nối) - LUÔN cập nhật, mỗi 60 giây
+        from flask import request
+        from datetime import datetime
+        if not state.get('_last_device_update') or (datetime.now() - state['_last_device_update']).seconds > 60:
+            try:
+                device = ThietBi.query.get(1)
+                if device:
+                    device.dia_chi_ip = request.remote_addr
+                    device.lan_ket_noi_cuoi = datetime.now()
+                    device.trang_thai = TrangThaiThietBiEnum.online
+                    db.session.commit()
+                    state['_last_device_update'] = datetime.now()
+            except:
+                pass
+        
+        # Skip xử lý AI nếu không có client nào ở trang counting
         if state.get('counting_clients', 0) <= 0:
             return
         
@@ -1117,7 +1132,17 @@ def report_incident():
         return redirect(url_for('pharmacist.report_incident'))
         
     history = BaoCaoSuCo.query.filter_by(id_nguoi_bao_cao=current_user.id).order_by(BaoCaoSuCo.ngay_tao.desc()).all()
-    return render_template('pharmacist/report_incident.html', incident_types=LoaiSuCoEnum, past_reports=history)
+    
+    # Lấy danh sách đơn thuốc đã hoàn thành của user (cho dropdown)
+    user_orders = DonThuoc.query.filter_by(
+        id_duoc_si=current_user.id,
+        trang_thai_don='completed'
+    ).order_by(DonThuoc.thoi_gian_ket_thuc.desc()).limit(50).all()
+    
+    return render_template('pharmacist/report_incident.html', 
+                           incident_types=LoaiSuCoEnum, 
+                           past_reports=history,
+                           user_orders=user_orders)
 
 @pharmacist.route('/guide')
 @login_required
@@ -1294,6 +1319,19 @@ def save_result():
                     id_nguoi_dung=current_user.id
                 )
                 db.session.add(log)
+                
+                # --- CẬP NHẬT TỶ LỆ CHÍNH XÁC CỦA DƯỢC SĨ ---
+                # Tính trung bình độ tin cậy từ tất cả chi tiết đơn đã hoàn thành
+                avg_confidence = db.session.query(func.avg(ChiTietDonThuoc.do_tin_cay))\
+                    .join(DonThuoc, ChiTietDonThuoc.id_don_thuoc == DonThuoc.id)\
+                    .filter(
+                        DonThuoc.id_duoc_si == current_user.id,
+                        DonThuoc.trang_thai_don == 'completed',
+                        ChiTietDonThuoc.do_tin_cay.isnot(None)
+                    ).scalar()
+                
+                if avg_confidence:
+                    current_user.ty_le_chinh_xac = round(float(avg_confidence), 2)
 
                 # --- NEW: POST-COUNT STOCK RECONCILIATION & STATS ---
                 for item in don.chi_tiet_don:
@@ -1343,7 +1381,20 @@ def save_result():
 def order_list():
     page = request.args.get('page', 1, type=int)
     search = request.args.get('q', '').strip()
-    query = DonThuoc.query.filter_by(id_duoc_si=current_user.id).order_by(desc(DonThuoc.thoi_gian_tao_don))
+    status_filter = request.args.get('status', 'all')
+    
+    query = DonThuoc.query.filter_by(id_duoc_si=current_user.id)
+    
+    # Lọc theo trạng thái
+    if status_filter == 'pending':
+        query = query.filter(DonThuoc.trang_thai_don == 'pending')
+    elif status_filter == 'counting':
+        query = query.filter(DonThuoc.trang_thai_don == 'counting')
+    elif status_filter == 'completed':
+        query = query.filter(DonThuoc.trang_thai_don == 'completed')
+    # 'all' thì không filter
+    
+    query = query.order_by(desc(DonThuoc.thoi_gian_tao_don))
     
     if search:
         query = query.filter(DonThuoc.ma_don_thuoc.ilike(f'%{search}%'))
@@ -1351,7 +1402,8 @@ def order_list():
     return render_template('pharmacist/order_list.html', 
                            pagination=query.paginate(page=page, per_page=10), 
                            TrangThaiDonEnum=TrangThaiDonEnum,
-                           search_query=search)
+                           search_query=search,
+                           status_filter=status_filter)
 
 @pharmacist.route('/new-order', methods=['GET', 'POST'])
 @login_required

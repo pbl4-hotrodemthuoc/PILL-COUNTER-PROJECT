@@ -26,9 +26,10 @@
             <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
                 <thead>
                     <tr>
+                        <th class="text-center" style="width: 50px;">STT</th>
+                        <th style="width: 70px;">Ảnh</th>
                         <th>Mã thuốc</th>
                         <th>Tên thuốc</th>
-                        <th>Mô tả</th>
                         <th class="text-center">Tồn kho</th>
                         <th class="text-center">Ngưỡng cảnh báo</th>
                         <th class="text-center">Hành động</th>
@@ -37,23 +38,31 @@
                 <tbody>
                     {% for drug in drugs %}
                     {# Tô màu vàng cho hàng nếu tồn kho thấp hơn ngưỡng #}
-                    <tr class="{{ 'table-warning' if drug.ton_kho_uoc_tinh is not none and drug.nguong_canh_bao is not none and drug.ton_kho_uoc_tinh < drug.nguong_canh_bao else '' }}">
+                    <tr
+                        class="{{ 'table-warning' if drug.ton_kho_uoc_tinh is not none and drug.nguong_canh_bao is not none and drug.ton_kho_uoc_tinh < drug.nguong_canh_bao else '' }}">
+                        <td class="text-center">{{ loop.index }}</td>
+                        <td class="text-center">
+                            <img src="{{ drug.url_hinh_anh if drug.url_hinh_anh else '/static/picture/pills/default.png' }}"
+                                alt="{{ drug.ten_thuoc }}"
+                                style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px;">
+                        </td>
                         <td>{{ drug.ma_thuoc }}</td>
                         <td>
                             <strong>{{ drug.ten_thuoc }}</strong>
                         </td>
-                        {# Đã sửa lỗi TypeError: dùng 'or' để cung cấp giá trị mặc định là chuỗi rỗng #}
-                        <td>{{ (drug.mo_ta or '') | truncate(80) }}</td>
                         <td class="text-center">{{ drug.ton_kho_uoc_tinh }}</td>
                         <td class="text-center">{{ drug.nguong_canh_bao }}</td>
                         <td class="text-center">
                             <!-- Nút Sửa -->
-                            <a href="{{ url_for('admin.edit_drug', drug_id=drug.id) }}" class="btn btn-info btn-circle btn-sm" title="Chỉnh sửa">
+                            <a href="{{ url_for('admin.edit_drug', drug_id=drug.id) }}"
+                                class="btn btn-info btn-circle btn-sm" title="Chỉnh sửa">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            
+
                             <!-- Nút Xóa (trong một form) -->
-                            <form action="{{ url_for('admin.delete_drug', drug_id=drug.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa thuốc {{ drug.ten_thuoc }} không? Hành động này không thể hoàn tác.');">
+                            <form action="{{ url_for('admin.delete_drug', drug_id=drug.id) }}" method="POST"
+                                class="d-inline"
+                                onsubmit="return confirm('Bạn có chắc chắn muốn xóa thuốc {{ drug.ten_thuoc }} không? Hành động này không thể hoàn tác.');">
                                 <button type="submit" class="btn btn-danger btn-circle btn-sm" title="Xóa">
                                     <i class="fas fa-trash"></i>
                                 </button>
@@ -62,7 +71,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" class="text-center">Chưa có loại thuốc nào trong danh mục.</td>
+                        <td colspan="7" class="text-center">Chưa có loại thuốc nào trong danh mục.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

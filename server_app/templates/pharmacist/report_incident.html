@@ -33,22 +33,31 @@
 
                         <!-- Mã đơn thuốc (tùy chọn) -->
                         <div class="mb-3">
-                            <label for="ma_don_thuoc" class="form-label">Mã đơn thuốc (nếu có)</label>
-                            <input type="text" class="form-control" id="ma_don_thuoc" name="ma_don_thuoc" placeholder="Ví dụ: DT20241028001">
+                            <label for="ma_don_thuoc" class="form-label">Đơn thuốc liên quan (nếu có)</label>
+                            <select class="form-select" id="ma_don_thuoc" name="ma_don_thuoc">
+                                <option value="">-- Không liên quan đến đơn cụ thể --</option>
+                                {% for order in user_orders %}
+                                <option value="{{ order.ma_don_thuoc }}">{{ order.ma_don_thuoc }} - {{
+                                    order.thoi_gian_ket_thuc.strftime('%d/%m/%Y %H:%M') if order.thoi_gian_ket_thuc else
+                                    'N/A' }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
 
                         <!-- Mô tả chi tiết -->
                         <div class="mb-3">
                             <label for="mo_ta" class="form-label required">Mô tả chi tiết</label>
-                            <textarea class="form-control" id="mo_ta" name="mo_ta" rows="5" placeholder="Vui lòng mô tả rõ ràng vấn đề bạn gặp phải..." required></textarea>
+                            <textarea class="form-control" id="mo_ta" name="mo_ta" rows="5"
+                                placeholder="Vui lòng mô tả rõ ràng vấn đề bạn gặp phải..." required></textarea>
                         </div>
 
                         <!-- Tải ảnh lên (tùy chọn) -->
                         <div class="mb-4">
                             <label for="hinh_anh" class="form-label">Đính kèm hình ảnh</label>
-                            <input class="form-control" type="file" id="hinh_anh" name="hinh_anh" accept="image/png, image/jpeg, image/gif">
+                            <input class="form-control" type="file" id="hinh_anh" name="hinh_anh"
+                                accept="image/png, image/jpeg, image/gif">
                         </div>
-                        
+
                         <!-- Nút Gửi -->
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary btn-lg">
@@ -85,12 +94,13 @@
                                     <td>{{ report.loai_su_co.value }}</td>
                                     <td>
                                         {% set status_map = {
-                                            'pending': ('warning', 'Chờ xử lý'),
-                                            'reviewing': ('info', 'Đang xem xét'),
-                                            'resolved': ('success', 'Đã giải quyết'),
-                                            'rejected': ('danger', 'Bị từ chối')
+                                        'pending': ('warning', 'Chờ xử lý'),
+                                        'reviewing': ('info', 'Đang xem xét'),
+                                        'resolved': ('success', 'Đã giải quyết'),
+                                        'rejected': ('danger', 'Bị từ chối')
                                         } %}
-                                        {% set status_info = status_map.get(report.trang_thai.name, ('secondary', report.trang_thai.name)) %}
+                                        {% set status_info = status_map.get(report.trang_thai.name, ('secondary',
+                                        report.trang_thai.name)) %}
                                         <span class="badge badge-{{ status_info[0] }}">{{ status_info[1] }}</span>
                                     </td>
                                     <td class="text-muted small">

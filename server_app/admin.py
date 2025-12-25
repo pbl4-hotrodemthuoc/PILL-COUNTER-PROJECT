@@ -119,6 +119,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 from io import BytesIO
 from .models import NhatKyHeThong, LoaiLogEnum
+import os
+from werkzeug.utils import secure_filename
 
 
 admin = Blueprint('admin', __name__)
@@ -327,8 +329,25 @@ def add_drug():
         existing_drug = LoaiThuoc.query.filter_by(ma_thuoc=ma_thuoc).first()
         if existing_drug:
             flash(f'Mã thuốc "{ma_thuoc}" đã tồn tại. Vui lòng chọn một mã khác.', 'danger')
-            # Trả lại form với dữ liệu người dùng đã nhập để họ không phải nhập lại
             return render_template('admin/drug_form.html', action='add', drug=request.form)
+
+        # Xử lý upload ảnh
+        url_hinh_anh = None
+        if 'hinh_anh' in request.files:
+            file = request.files['hinh_anh']
+            if file and file.filename:
+                # Tạo tên file an toàn: ma_thuoc + timestamp
+                ext = os.path.splitext(file.filename)[1].lower()
+                if ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+                    filename = f"{ma_thuoc}_{int(datetime.now().timestamp())}{ext}"
+                    filename = secure_filename(filename)
+                    
+                    # Đường dẫn thư mục lưu ảnh
+                    upload_folder = os.path.join(os.path.dirname(__file__), 'static', 'picture', 'pills')
+                    os.makedirs(upload_folder, exist_ok=True)
+                    
+                    file.save(os.path.join(upload_folder, filename))
+                    url_hinh_anh = f"/static/picture/pills/{filename}"
 
         thuoc_moi = LoaiThuoc(
             ten_thuoc=request.form.get('ten_thuoc'),
@@ -337,7 +356,7 @@ def add_drug():
             don_vi_tinh=request.form.get('don_vi_tinh', 'viên'),
             ton_kho_uoc_tinh=int(request.form.get('ton_kho_uoc_tinh', 0)),
             nguong_canh_bao=int(request.form.get('nguong_canh_bao', 0)),
-            url_hinh_anh=request.form.get('url_hinh_anh')
+            url_hinh_anh=url_hinh_anh
         )
         db.session.add(thuoc_moi)
         db.session.commit()
@@ -361,7 +380,6 @@ def edit_drug(drug_id):
             existing_drug = LoaiThuoc.query.filter_by(ma_thuoc=ma_thuoc_moi).first()
             if existing_drug:
                 flash(f'Mã thuốc "{ma_thuoc_moi}" đã tồn tại. Vui lòng chọn một mã khác.', 'danger')
-                # Trả lại form với dữ liệu người dùng đã nhập
                 return render_template('admin/drug_form.html', action='edit', drug=request.form)
 
         thuoc_can_sua.ten_thuoc = request.form.get('ten_thuoc')
@@ -370,7 +388,30 @@ def edit_drug(drug_id):
         thuoc_can_sua.don_vi_tinh = request.form.get('don_vi_tinh', 'viên')
         thuoc_can_sua.ton_kho_uoc_tinh = int(request.form.get('ton_kho_uoc_tinh', 0))
         thuoc_can_sua.nguong_canh_bao = int(request.form.get('nguong_canh_bao', 0))
-        thuoc_can_sua.url_hinh_anh = request.form.get('url_hinh_anh')
+        
+        # Xử lý upload ảnh mới
+        if 'hinh_anh' in request.files:
+            file = request.files['hinh_anh']
+            if file and file.filename:
+                ext = os.path.splitext(file.filename)[1].lower()
+                if ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+                    # Xóa ảnh cũ nếu có
+                    if thuoc_can_sua.url_hinh_anh:
+                        old_filename = thuoc_can_sua.url_hinh_anh.split('/')[-1]
+                        old_path = os.path.join(os.path.dirname(__file__), 'static', 'picture', 'pills', old_filename)
+                        if os.path.exists(old_path) and old_filename != 'default.png':
+                            try:
+                                os.remove(old_path)
+                            except:
+                                pass
+                    
+                    # Lưu ảnh mới
+                    filename = f"{ma_thuoc_moi}_{int(datetime.now().timestamp())}{ext}"
+                    filename = secure_filename(filename)
+                    upload_folder = os.path.join(os.path.dirname(__file__), 'static', 'picture', 'pills')
+                    os.makedirs(upload_folder, exist_ok=True)
+                    file.save(os.path.join(upload_folder, filename))
+                    thuoc_can_sua.url_hinh_anh = f"/static/picture/pills/{filename}"
         
         db.session.commit()
         flash(f'Cập nhật thông tin thuốc "{thuoc_can_sua.ten_thuoc}" thành công!', 'success')
@@ -396,34 +437,15 @@ def delete_drug(drug_id):
 @admin_required
 def devices():
     """Hiển thị trang thông tin chi tiết của thiết bị đếm thuốc."""
-    # Theo yêu cầu, chúng ta sẽ lấy thông tin của thiết bị có ID = 1
     device = ThietBi.query.get_or_404(1)
     
-    # Truyền Enum vào template để có thể so sánh trạng thái trong file HTML
+    # Đếm số đơn thật từ database
+    total_orders = DonThuoc.query.filter_by(trang_thai_don='completed').count()
+    
     return render_template('admin/devices.html', 
                            device=device, 
+                           total_orders=total_orders,
                            TrangThaiThietBiEnum=TrangThaiThietBiEnum)
-
-# --- Các route hành động cho thiết bị (Placeholder) ---
-@admin.route('/devices/reboot/<int:device_id>', methods=['POST'])
-@login_required
-@admin_required
-def reboot_device(device_id):
-    """(Nâng cao) Gửi lệnh khởi động lại thiết bị."""
-    device = ThietBi.query.get_or_404(device_id)
-    # --- Logic thực tế để gửi lệnh (ví dụ: qua API, MQTT) sẽ được thêm vào đây ---
-    flash(f'Đã gửi yêu cầu khởi động lại đến thiết bị "{device.ten_thiet_bi}".', 'info')
-    return redirect(url_for('admin.devices'))
-
-@admin.route('/devices/diagnose/<int:device_id>', methods=['POST'])
-@login_required
-@admin_required
-def diagnose_device(device_id):
-    """(Nâng cao) Chạy chẩn đoán trên thiết bị."""
-    device = ThietBi.query.get_or_404(device_id)
-    # --- Logic thực tế để chạy chẩn đoán sẽ được thêm vào đây ---
-    flash(f'Đã gửi yêu cầu chạy chẩn đoán đến thiết bị "{device.ten_thiet_bi}".', 'info')
-    return redirect(url_for('admin.devices'))
 
 def get_report_data(time_range, start_date_str, end_date_str):
     """Hàm helper để lấy dữ liệu báo cáo dựa trên bộ lọc thời gian."""
@@ -702,31 +724,7 @@ def system_logs():
                            filters=filters) # Các giá trị bộ lọc hiện tại
 
 
-# --- CÀI ĐẶT HỆ THỐNG (SETTINGS) ---
-@admin.route('/settings', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def settings():
-    """Hiển thị và xử lý (giả lập) form cài đặt hệ thống."""
-    if request.method == 'POST':
-        # Trong một ứng dụng thực tế, bạn sẽ lấy các giá trị này
-        # và lưu chúng vào file config, database, hoặc cache.
-        # Ví dụ:
-        # system_name = request.form.get('system_name')
-        # default_threshold = request.form.get('default_threshold')
-        # ...
-        
-        flash('Cài đặt hệ thống đã được cập nhật thành công!', 'success')
-        return redirect(url_for('admin.settings'))
 
-    # Tải các cài đặt hiện tại (giả lập) để hiển thị trên form
-    current_settings = {
-        'system_name': 'PharmaSys Manager',
-        'notifications_enabled': True,
-        'default_threshold': 50
-    }
-    
-    return render_template('admin/settings.html', settings=current_settings)
 
 @admin.route('/profile')
 @login_required

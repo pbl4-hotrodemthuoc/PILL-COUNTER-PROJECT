@@ -56,7 +56,6 @@ class TrangThaiKhopChiTietEnum(enum.Enum):
 class LoaiSuCoEnum(enum.Enum):
     drug_defect = 'Lỗi thuốc'
     device_error = 'Lỗi thiết bị'
-    ai_error = 'Lỗi AI'
     other = 'Khác'
 
 class TrangThaiSuCoEnum(enum.Enum):
@@ -383,7 +382,7 @@ def khoi_tao_du_lieu_mau():
     # TẠO BÁO CÁO SỰ CỐ (10 BÁO CÁO)
     # ============================================
     bao_cao_list = []
-    loai_su_co_choices = [LoaiSuCoEnum.drug_defect, LoaiSuCoEnum.device_error, LoaiSuCoEnum.ai_error, LoaiSuCoEnum.other]
+    loai_su_co_choices = [LoaiSuCoEnum.drug_defect, LoaiSuCoEnum.device_error, LoaiSuCoEnum.other]
     trang_thai_su_co_choices = [TrangThaiSuCoEnum.resolved] * 5 + [TrangThaiSuCoEnum.reviewing] * 3 + [TrangThaiSuCoEnum.pending] * 2
     
     for i in range(10):
@@ -393,7 +392,6 @@ def khoi_tao_du_lieu_mau():
         mo_ta_map = {
             LoaiSuCoEnum.drug_defect: f'Phát hiện viên thuốc bị vỡ/méo trong lô {random.randint(1000, 9999)}',
             LoaiSuCoEnum.device_error: f'Thiết bị gặp lỗi kết nối hoặc camera không hoạt động',
-            LoaiSuCoEnum.ai_error: f'AI đếm sai số lượng thuốc, chênh lệch {random.randint(1, 5)} viên',
             LoaiSuCoEnum.other: f'Vấn đề khác: {random.choice(["Lỗi phần mềm", "Sự cố điện", "Cần bảo trì"])}'
         }
         

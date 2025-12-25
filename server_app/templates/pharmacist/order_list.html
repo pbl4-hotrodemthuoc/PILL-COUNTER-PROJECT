@@ -20,12 +20,10 @@
             </div>
             <div class="col-md-3">
                 <select name="status" class="form-select">
-                    <option value="all">Tất cả trạng thái</option>
-                    {% for status in TrangThaiDonEnum %}
-                    <option value="{{ status.name }}" {% if request.args.get('status') == status.name %}selected{% endif %}>
-                        {{ status.value }}
-                    </option>
-                    {% endfor %}
+                    <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Tất cả trạng thái</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Chờ xử lý</option>
+                    <option value="counting" {% if status_filter == 'counting' %}selected{% endif %}>Đang đếm</option>
+                    <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Hoàn thành</option>
                 </select>
             </div>
             <div class="col-md-2">
@@ -68,13 +66,12 @@
                         {% endif %}
                     </td>
                     <td class="text-end">
-                        <!-- Nút Đếm -->
-                       <a href="{{ url_for('pharmacist.counting_page_no_id') }}" class="btn btn-sm btn-outline-primary" title="Vào trang đếm thuốc">
-    <i class="bi bi-play-fill"></i> Đếm
-</a>
-                        
-                        <!-- Nút Sửa (Chỉ hiện nếu chưa hoàn thành) -->
                         {% if order.trang_thai_don.name != 'completed' %}
+                        <!-- Nút Đếm - chỉ hiện khi chưa hoàn thành -->
+                        <a href="{{ url_for('pharmacist.counting_page_no_id') }}" class="btn btn-sm btn-outline-primary" title="Vào trang đếm thuốc">
+                            <i class="bi bi-play-fill"></i> Đếm
+                        </a>
+                        <!-- Nút Sửa -->
                         <a href="{{ url_for('pharmacist.edit_order', order_id=order.id) }}" class="btn btn-sm btn-outline-warning" title="Sửa">
                             <i class="bi bi-pencil"></i>
                         </a>
@@ -84,6 +81,9 @@
                                 <i class="bi bi-trash"></i>
                             </button>
                         </form>
+                        {% else %}
+                        <!-- Đơn hoàn thành - chỉ hiện nút xem -->
+                        <span class="text-muted small"><i class="bi bi-check-circle"></i> Đã xử lý</span>
                         {% endif %}
                     </td>
                 </tr>
