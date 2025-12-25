@@ -147,7 +147,7 @@ class DonThuoc(db.Model):
     ten_benh_nhan = db.Column(db.String(100), nullable=True)
     thoi_gian_bat_dau = db.Column(db.DateTime, nullable=True)
     thoi_gian_ket_thuc = db.Column(db.DateTime, nullable=True)
-    thoi_gian_xu_ly_giay = db.Column(db.Integer, nullable=True)
+    thoi_gian_xu_ly_ms = db.Column(db.BigInteger, nullable=True)  # Thời gian xử lý (mili giây)
     tong_so_loai_thuoc = db.Column(db.Integer, default=0)
     tong_vien_yeu_cau = db.Column(db.Integer, default=0)
     tong_vien_dem_duoc = db.Column(db.Integer, default=0)
@@ -324,7 +324,7 @@ def khoi_tao_du_lieu_mau():
             thoi_gian_tao_don=thoi_gian_tao,
             thoi_gian_bat_dau=thoi_gian_tao + timedelta(minutes=2) if trang_thai != TrangThaiDonEnum.pending else None,
             thoi_gian_ket_thuc=thoi_gian_tao + timedelta(minutes=random.randint(5, 15)) if trang_thai == TrangThaiDonEnum.completed else None,
-            thoi_gian_xu_ly_giay=random.randint(180, 900) if trang_thai == TrangThaiDonEnum.completed else None,
+            thoi_gian_xu_ly_ms=random.randint(180000, 900000) if trang_thai == TrangThaiDonEnum.completed else None,  # Random 3-15 phút in ms
             tong_so_loai_thuoc=random.randint(2, 5),
             tong_vien_yeu_cau=random.randint(50, 200),
             tong_vien_dem_duoc=random.randint(48, 200) if trang_thai != TrangThaiDonEnum.pending else 0,

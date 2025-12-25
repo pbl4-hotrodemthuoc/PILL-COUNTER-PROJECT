@@ -1,0 +1,184 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Gửi Thông Báo{% endblock %}
+{% block page_title %}Gửi Thông Báo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Form Gửi Thông Báo -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white border-bottom">
+                    <h5 class="mb-0 fw-semibold">Tạo thông báo mới</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.send_notification') }}">
+                        <!-- Loại thông báo -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Loại thông báo</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="radio" class="btn-check" name="loai" id="loai_info" value="info" checked>
+                                    <label class="btn btn-outline-primary w-100 py-2" for="loai_info">
+                                        <i class="fa-solid fa-circle-info me-1"></i> Thông tin
+                                    </label>
+                                </div>
+                                <div class="col-6">
+                                    <input type="radio" class="btn-check" name="loai" id="loai_warning" value="warning">
+                                    <label class="btn btn-outline-warning w-100 py-2" for="loai_warning">
+                                        <i class="fa-solid fa-triangle-exclamation me-1"></i> Cảnh báo
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tiêu đề -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Tiêu đề <span class="text-danger">*</span></label>
+                            <input type="text" name="tieu_de" class="form-control form-control-lg" 
+                                   placeholder="Nhập tiêu đề thông báo..." required maxlength="255">
+                        </div>
+
+                        <!-- Nội dung -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Nội dung <span class="text-danger">*</span></label>
+                            <textarea name="noi_dung" class="form-control" rows="4" 
+                                      placeholder="Nhập nội dung chi tiết..." required></textarea>
+                        </div>
+
+                        <!-- Người nhận -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Người nhận <span class="text-danger">*</span></label>
+                            <div class="row g-2 mb-3">
+                                <div class="col-6">
+                                    <input type="radio" class="btn-check" name="target_type" id="target_all" value="pharmacists" checked onclick="toggleRecipients()">
+                                    <label class="btn btn-outline-secondary w-100" for="target_all">Tất cả dược sĩ</label>
+                                </div>
+                                <div class="col-6">
+                                    <input type="radio" class="btn-check" name="target_type" id="target_select" value="select" onclick="toggleRecipients()">
+                                    <label class="btn btn-outline-secondary w-100" for="target_select">Chọn cụ thể</label>
+                                </div>
+                            </div>
+                            
+                            <!-- Chọn người dùng với checkboxes + search -->
+                            <div id="selectUsersDiv" style="display: none;">
+                                <div class="border rounded p-3 bg-light">
+                                    <div class="d-flex gap-2 mb-3">
+                                        <input type="text" id="userSearch" class="form-control" 
+                                               placeholder="Tìm theo tên..." oninput="filterUsers()">
+                                        <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" onclick="selectAll()">Chọn tất cả</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" onclick="deselectAll()">Bỏ chọn</button>
+                                    </div>
+                                    
+                                    <div class="mb-2 small text-muted">
+                                        Đã chọn: <span id="selectedCount" class="fw-bold text-primary">0</span> người
+                                    </div>
+                                    
+                                    <div id="userList" style="max-height: 200px; overflow-y: auto;">
+                                        {% for user in all_users if user.vai_tro.name == 'pharmacist' %}
+                                        <div class="form-check py-1 user-item" data-name="{{ user.ho_ten|lower }}">
+                                            <input class="form-check-input user-checkbox" type="checkbox" 
+                                                   name="target_users[]" value="{{ user.id }}" id="user_{{ user.id }}"
+                                                   onchange="updateCount()">
+                                            <label class="form-check-label" for="user_{{ user.id }}">
+                                                {{ user.ho_ten }} <small class="text-muted">({{ user.ten_dang_nhap }})</small>
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="fa-solid fa-paper-plane me-2"></i>Gửi thông báo
+                            </button>
+                            <button type="reset" class="btn btn-light" onclick="setTimeout(resetForm, 0)">Xóa form</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h6 class="mb-0 fw-semibold">Thống kê</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Tổng thông báo:</span>
+                        <span class="fw-bold text-primary">{{ total_sent }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Người dùng:</span>
+                        <span class="fw-bold">{{ all_users|length }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between">
+                    <h6 class="mb-0 fw-semibold">Gần đây</h6>
+                    <a href="{{ url_for('admin.notification_history') }}" class="small">Xem lịch sử</a>
+                </div>
+                <div class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
+                    {% for notif in recent_sent %}
+                    <div class="list-group-item py-2">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="fw-semibold text-truncate" style="max-width: 180px;">{{ notif.tieu_de }}</span>
+                            <span class="badge rounded-pill
+                                {% if notif.loai.name == 'info' %}bg-primary
+                                {% elif notif.loai.name == 'warning' %}bg-warning text-dark
+                                {% else %}bg-secondary{% endif %}">{{ notif.loai.value }}</span>
+                        </div>
+                        <small class="text-muted">{{ notif.nguoi_dung.ho_ten }} • {{ notif.ngay_tao.strftime('%H:%M %d/%m') }}</small>
+                    </div>
+                    {% else %}
+                    <div class="list-group-item text-center text-muted py-3">Chưa có</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleRecipients() {
+    document.getElementById('selectUsersDiv').style.display = 
+        document.getElementById('target_select').checked ? 'block' : 'none';
+}
+
+function filterUsers() {
+    const search = document.getElementById('userSearch').value.toLowerCase();
+    document.querySelectorAll('.user-item').forEach(item => {
+        item.style.display = item.dataset.name.includes(search) ? '' : 'none';
+    });
+}
+
+function selectAll() {
+    document.querySelectorAll('.user-item:not([style*="display: none"]) .user-checkbox').forEach(cb => cb.checked = true);
+    updateCount();
+}
+
+function deselectAll() {
+    document.querySelectorAll('.user-checkbox').forEach(cb => cb.checked = false);
+    updateCount();
+}
+
+function updateCount() {
+    document.getElementById('selectedCount').textContent = 
+        document.querySelectorAll('.user-checkbox:checked').length;
+}
+
+function resetForm() {
+    deselectAll();
+    document.getElementById('userSearch').value = '';
+    filterUsers();
+    toggleRecipients();
+}
+</script>
+{% endblock %}

@@ -5,87 +5,403 @@
 {% block page_title %}Thiết Bị IoT Đếm Thuốc{% endblock %}
 
 {% block content %}
-<div class="row">
-
-    <!-- Cột Thông tin chính -->
-    <div class="col-lg-6">
-        <div class="card shadow mb-4">
-            <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                <h6 class="m-0 font-weight-bold text-primary">
-                    <i class="fas fa-microchip mr-2"></i>Thông tin Thiết bị
-                </h6>
-                {% if device.trang_thai == TrangThaiThietBiEnum.online %}
-                <span class="badge badge-success p-2">
-                    <i class="fas fa-check-circle mr-1"></i> Online
-                </span>
-                {% else %}
-                <span class="badge badge-danger p-2">
-                    <i class="fas fa-times-circle mr-1"></i> Offline
-                </span>
-                {% endif %}
+<div class="row g-4">
+    <!-- Camera Preview Column -->
+    <div class="col-lg-8">
+        <!-- Camera Card -->
+        <div class="card card-primary">
+            <div class="card-header">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-camera-video-fill text-primary me-2"></i>
+                    <span>Camera Trực Tiếp - {{ device.ten_thiet_bi }}</span>
+                </div>
+                <div>
+                    <span id="cameraStatus" class="badge badge-secondary">Đang kết nối...</span>
+                    <span id="fpsDisplay" class="badge badge-info ms-1" style="display:none;">-- FPS</span>
+                </div>
             </div>
-            <div class="card-body">
-                <table class="table table-borderless mb-0">
-                    <tbody>
-                        <tr>
-                            <td width="40%"><strong>Tên thiết bị</strong></td>
-                            <td>{{ device.ten_thiet_bi }}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Mã thiết bị</strong></td>
-                            <td><code>{{ device.ma_thiet_bi }}</code></td>
-                        </tr>
-                        <tr>
-                            <td><strong>Địa chỉ IP</strong></td>
-                            <td><code>{{ device.dia_chi_ip or 'Chưa xác định' }}</code></td>
-                        </tr>
-                        <tr>
-                            <td><strong>Vị trí</strong></td>
-                            <td>Quầy thuốc số 1</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Lần kết nối cuối</strong></td>
-                            <td>{{ device.lan_ket_noi_cuoi.strftime('%H:%M:%S - %d/%m/%Y') if device.lan_ket_noi_cuoi else 'Chưa có thông tin' }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Cột Thống kê & Mô tả -->
-    <div class="col-lg-6">
-        <!-- Thống kê tổng đơn -->
-        <div class="card shadow mb-4 border-left-primary">
-            <div class="card-body py-3">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                            Tổng đơn đã xử lý
-                        </div>
-                        <div class="h2 mb-0 font-weight-bold text-gray-800">{{ total_orders }}</div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+            <div class="card-body p-0">
+                <div class="bg-dark position-relative"
+                    style="height: 400px; border-radius: 0 0 var(--border-radius) var(--border-radius); overflow: hidden;">
+                    <img id="cameraImage" class="w-100 h-100" style="object-fit: contain; display: none;">
+                    <div id="cameraWaiting"
+                        class="d-flex h-100 flex-column align-items-center justify-content-center text-white-50">
+                        <div class="spinner-border text-primary mb-3"></div>
+                        <h5>Đang chờ kết nối từ Raspberry Pi...</h5>
+                        <p class="small">Hãy chắc chắn thiết bị đã bật và kết nối mạng</p>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <!-- Mô tả hệ thống -->
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">Mô tả hệ thống</h6>
+
+        <!-- Pills Gallery Card -->
+        <div class="card card-info">
+            <div class="card-header" style="cursor: pointer;" onclick="openPillsModal()">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-grid-3x3-gap-fill text-info me-2"></i>
+                    <span>Chi Tiết Viên Thuốc</span>
+                </div>
+                <div>
+                    <span class="badge badge-primary" id="pillsBadge">0 viên</span>
+                    <i class="bi bi-arrows-fullscreen text-muted ms-2"></i>
+                </div>
             </div>
-            <div class="card-body">
-                <p class="small text-muted mb-0">
-                    <i class="fas fa-info-circle mr-1"></i>
-                    Thiết bị Raspberry Pi được kết nối với camera để quay video khay đếm thuốc. 
-                    Video được gửi đến server qua WebSocket và AI sẽ phân tích để đếm số viên thuốc.
-                </p>
+            <div class="card-body p-2" id="pillsGallery"
+                style="min-height: 80px; max-height: 120px; overflow-x: auto; overflow-y: hidden; white-space: nowrap;">
+                <div class="text-muted text-center py-3">
+                    <i class="bi bi-capsule d-block mb-1" style="font-size: 1.5rem; opacity: 0.4;"></i>
+                    <span class="small">Chờ AI nhận diện để xem chi tiết</span>
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- Control Panel Column -->
+    <div class="col-lg-4">
+        <!-- Stats Cards -->
+        <div class="row g-3 mb-3">
+            <div class="col-6">
+                <div class="card card-primary mb-0">
+                    <div class="card-body py-3 text-center">
+                        <div class="text-muted small text-uppercase">Tổng đơn</div>
+                        <div class="h3 mb-0 text-primary fw-bold">{{ total_orders }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card card-success mb-0">
+                    <div class="card-body py-3 text-center">
+                        <div class="text-muted small text-uppercase">Trạng thái</div>
+                        <!-- Mặc định Offline, chỉ Online khi nhận được frame -->
+                        <div id="deviceStatus" class="h5 mb-0 fw-bold text-danger">🔴 Offline</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Counting Panel -->
+        <div class="card card-info">
+            <div class="card-header">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-hand-index-thumb-fill text-info me-2"></i>
+                    <span>Chế Độ Đếm Tự Do</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Target Input -->
+                <div class="mb-3">
+                    <label class="form-label small text-muted">Số lượng mục tiêu:</label>
+                    <input type="number" id="targetQty" class="form-control text-center fw-bold"
+                        style="font-size: 1.5rem; height: 56px;" value="0" min="0">
+                </div>
+
+                <!-- Result Display -->
+                <div class="text-center py-3 rounded mb-3" style="background: var(--gray-100);">
+                    <span class="text-muted small text-uppercase fw-bold d-block mb-1">KẾT QUẢ ĐẾM</span>
+                    <h1 id="countDisplay" class="display-3 fw-bold mb-2" style="color: var(--primary-blue);">0</h1>
+                    <div class="mb-2">
+                        <span class="text-muted small me-1">Độ tin cậy:</span>
+                        <span id="confidenceDisplay" class="badge badge-secondary px-3 py-2">--</span>
+                    </div>
+                    <span id="statusDisplay" class="badge badge-secondary px-3 py-2">Chờ tín hiệu...</span>
+                </div>
+
+                <!-- Compare Result -->
+                <div id="compareResult" class="alert text-center mb-3 fw-bold" style="display:none;">
+                    <i id="compareIcon" class="bi bi-question-circle me-2"></i>
+                    <span id="compareText">--</span>
+                </div>
+
+                <!-- Reset Button - CENTERED -->
+                <div class="text-center">
+                    <button id="btnReset" class="btn btn-warning btn-lg fw-bold px-4">
+                        <i class="bi bi-unlock-fill me-2"></i> MỞ KHÓA / ĐẾM LẠI
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<!-- Pills Modal -->
+<div class="modal fade" id="pillsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-capsule me-2"></i>Chi Tiết Viên Thuốc</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="pillsModalBody" style="max-height: 400px; overflow-y: auto;"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .pill-item {
+        display: inline-block;
+        text-align: center;
+        margin: 0 4px;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .pill-item:hover {
+        transform: scale(1.1);
+    }
+
+    .pill-thumb {
+        width: 60px;
+        height: 60px;
+        border-radius: var(--border-radius);
+        border: 3px solid transparent;
+        object-fit: cover;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .conf-high {
+        border-color: var(--status-success) !important;
+    }
+
+    .conf-mid {
+        border-color: var(--status-warning) !important;
+    }
+
+    .conf-low {
+        border-color: var(--status-danger) !important;
+    }
+
+    .conf-badge {
+        font-size: 0.65rem;
+        display: block;
+        margin-top: 3px;
+    }
+
+    .pill-list-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-color-light);
+    }
+
+    .pill-list-item:hover {
+        background: var(--bg-hover);
+    }
+
+    .pill-list-img {
+        width: 56px;
+        height: 56px;
+        border-radius: var(--border-radius);
+        object-fit: cover;
+        border: 3px solid var(--border-color);
+        margin-right: 16px;
+    }
+
+    #pillsGallery::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    #pillsGallery::-webkit-scrollbar-thumb {
+        background: var(--primary-blue);
+        border-radius: 2px;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const socket = io();
+        const cameraImage = document.getElementById('cameraImage');
+        const cameraWaiting = document.getElementById('cameraWaiting');
+        const cameraStatus = document.getElementById('cameraStatus');
+        const fpsDisplay = document.getElementById('fpsDisplay');
+        const countDisplay = document.getElementById('countDisplay');
+        const confidenceDisplay = document.getElementById('confidenceDisplay');
+        const statusDisplay = document.getElementById('statusDisplay');
+        const targetQty = document.getElementById('targetQty');
+        const compareResult = document.getElementById('compareResult');
+        const compareIcon = document.getElementById('compareIcon');
+        const compareText = document.getElementById('compareText');
+        const btnReset = document.getElementById('btnReset');
+
+        let frameCount = 0, lastFpsUpdate = Date.now();
+        let lastFrameTime = 0; // Thời điểm nhận frame cuối
+        let offlineTimeout = null; // Timeout check offline
+        window.currentPillsData = [];
+
+        // ✅ Function kiểm tra Pi còn stream không
+        function checkPiOnline() {
+            const deviceStatus = document.getElementById('deviceStatus');
+            const now = Date.now();
+
+            // Nếu không nhận frame trong 5 giây → Offline
+            if (lastFrameTime > 0 && now - lastFrameTime > 5000) {
+                if (deviceStatus) {
+                    deviceStatus.className = 'h5 mb-0 fw-bold text-danger';
+                    deviceStatus.textContent = '🔴 Offline';
+                }
+                cameraStatus.className = 'badge badge-danger';
+                cameraStatus.textContent = '⚠ Pi mất kết nối';
+            }
+        }
+
+        // Check mỗi 3 giây
+        setInterval(checkPiOnline, 3000);
+
+        socket.on('connect', () => {
+            socket.emit('join_counting');
+            cameraStatus.className = 'badge badge-warning';
+            cameraStatus.textContent = '✓ Đã kết nối';
+        });
+
+        window.addEventListener('beforeunload', () => socket.emit('leave_counting'));
+
+        targetQty.addEventListener('input', function () {
+            socket.emit('update_target', { target: parseInt(this.value) || 0 });
+            updateComparison();
+        });
+
+        socket.on('ai_result', (data) => {
+            // ✅ Cập nhật thời điểm nhận frame
+            lastFrameTime = Date.now();
+
+            cameraWaiting.style.display = 'none';
+            cameraImage.style.display = 'block';
+            cameraImage.src = data.processed_image;
+
+            cameraStatus.className = 'badge badge-success';
+            cameraStatus.textContent = '● LIVE';
+
+            frameCount++;
+            if (Date.now() - lastFpsUpdate >= 1000) {
+                fpsDisplay.style.display = 'inline-block';
+                fpsDisplay.textContent = frameCount + ' FPS';
+                frameCount = 0;
+                lastFpsUpdate = Date.now();
+            }
+
+            // ✅ CẬP NHẬT TRẠNG THÁI REALTIME
+            const deviceStatus = document.getElementById('deviceStatus');
+            if (deviceStatus) {
+                deviceStatus.className = 'h5 mb-0 fw-bold text-success';
+                deviceStatus.textContent = '🟢 Online';
+            }
+
+            countDisplay.textContent = data.count;
+
+            if (data.confidence != null) {
+                const conf = Math.round(data.confidence * 100);
+                confidenceDisplay.textContent = conf + '%';
+                confidenceDisplay.className = 'badge px-3 py-2 badge-' + (conf >= 90 ? 'success' : conf >= 70 ? 'warning' : 'danger');
+            }
+
+            if (data.is_locked) {
+                statusDisplay.className = 'badge px-3 py-2 badge-' + data.status_color;
+                statusDisplay.textContent = '✓ CHỐT: ' + data.status_text;
+                cameraImage.style.border = '4px solid var(--status-success)';
+            } else {
+                statusDisplay.className = 'badge badge-warning px-3 py-2';
+                statusDisplay.textContent = data.status_text || 'Đang đếm...';
+                cameraImage.style.border = 'none';
+            }
+
+            updateComparison();
+
+            if (data.pills_detail) {
+                window.currentPillsData = data.pills_detail;
+                renderPillsGallery(data.pills_detail);
+            }
+        });
+
+        function updateComparison() {
+            const target = parseInt(targetQty.value) || 0;
+            const actual = parseInt(countDisplay.textContent) || 0;
+            if (target === 0) { compareResult.style.display = 'none'; return; }
+
+            compareResult.style.display = 'block';
+            const diff = actual - target;
+
+            if (diff === 0) {
+                compareResult.className = 'alert alert-success text-center mb-3 fw-bold';
+                compareIcon.className = 'bi bi-check-circle-fill me-2';
+                compareText.textContent = '✓ KHỚP (' + actual + '/' + target + ')';
+            } else if (diff > 0) {
+                compareResult.className = 'alert alert-warning text-center mb-3 fw-bold';
+                compareIcon.className = 'bi bi-exclamation-triangle-fill me-2';
+                compareText.textContent = '↑ DƯ ' + diff + ' viên (' + actual + '/' + target + ')';
+            } else {
+                compareResult.className = 'alert alert-danger text-center mb-3 fw-bold';
+                compareIcon.className = 'bi bi-x-circle-fill me-2';
+                compareText.textContent = '↓ THIẾU ' + Math.abs(diff) + ' viên (' + actual + '/' + target + ')';
+            }
+        }
+
+        btnReset.addEventListener('click', () => {
+            socket.emit('reset_counting');
+            cameraImage.style.border = 'none';
+            statusDisplay.className = 'badge badge-secondary px-3 py-2';
+            statusDisplay.textContent = 'Chờ tín hiệu...';
+        });
+
+        function renderPillsGallery(pills) {
+            const gallery = document.getElementById('pillsGallery');
+            const badge = document.getElementById('pillsBadge');
+
+            if (!pills || pills.length === 0) {
+                gallery.innerHTML = '<div class="text-muted text-center py-3"><i class="bi bi-capsule d-block mb-1" style="font-size:1.5rem;opacity:0.4;"></i><span class="small">Chờ AI nhận diện</span></div>';
+                badge.textContent = '0 viên';
+                return;
+            }
+
+            const MAX = 8;
+            let html = '';
+            pills.slice(0, MAX).forEach(pill => {
+                const conf = Math.round(pill.confidence * 100);
+                const cls = conf >= 90 ? 'high' : conf >= 70 ? 'mid' : 'low';
+                const bg = conf >= 90 ? 'success' : conf >= 70 ? 'warning' : 'danger';
+                html += '<div class="pill-item" onclick="openPillsModal()"><img src="' + pill.image + '" class="pill-thumb conf-' + cls + '"><span class="conf-badge badge badge-' + bg + '">' + conf + '%</span></div>';
+            });
+
+            if (pills.length > MAX) {
+                html += '<div class="pill-item" onclick="openPillsModal()"><div style="width:60px;height:60px;border-radius:var(--border-radius);background:var(--primary-blue);display:flex;align-items:center;justify-content:center;"><span style="color:white;font-weight:bold;">+' + (pills.length - MAX) + '</span></div><span class="conf-badge text-muted">Xem thêm</span></div>';
+            }
+
+            gallery.innerHTML = html;
+            badge.textContent = pills.length + ' viên';
+        }
+
+        window.openPillsModal = function () {
+            const pills = window.currentPillsData || [];
+            const body = document.getElementById('pillsModalBody');
+
+            if (pills.length === 0) {
+                body.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-capsule" style="font-size:2.5rem;opacity:0.3;"></i><p class="mt-2">Chưa có dữ liệu</p></div>';
+            } else {
+                let html = '';
+                pills.forEach(pill => {
+                    const conf = Math.round(pill.confidence * 100);
+                    const bg = conf >= 90 ? 'success' : conf >= 70 ? 'warning' : 'danger';
+                    const border = conf >= 90 ? 'var(--status-success)' : conf >= 70 ? 'var(--status-warning)' : 'var(--status-danger)';
+                    html += '<div class="pill-list-item"><img src="' + pill.image + '" class="pill-list-img" style="border-color:' + border + '"><div><div class="fw-bold">Viên #' + pill.id + '</div><div class="small">Độ tin cậy: <span class="badge badge-' + bg + '">' + conf + '%</span></div></div></div>';
+                });
+                body.innerHTML = html;
+            }
+            new bootstrap.Modal(document.getElementById('pillsModal')).show();
+        };
+
+        socket.on('disconnect', () => {
+            cameraStatus.className = 'badge badge-danger';
+            cameraStatus.textContent = '✕ Mất kết nối';
+            fpsDisplay.style.display = 'none';
+
+            // ✅ CẬP NHẬT TRẠNG THÁI OFFLINE
+            const deviceStatus = document.getElementById('deviceStatus');
+            if (deviceStatus) {
+                deviceStatus.className = 'h5 mb-0 fw-bold text-danger';
+                deviceStatus.textContent = '🔴 Offline';
+            }
+        });
+    });
+</script>
 {% endblock %}

@@ -254,9 +254,15 @@
                     <div class="py-4 mt-auto mb-3 rounded-3 bg-light text-center border">
                         <span class="text-muted small text-uppercase fw-bold">KẾT QUẢ THỰC TẾ</span>
                         <h1 id="count" class="display-1 fw-bold text-dark my-1">0</h1>
-                        <div class="mb-2">
-                            <span class="small text-muted">Độ tin cậy: </span>
-                            <span id="confidenceDisplay" class="badge bg-info">--</span>
+                        <div class="mb-2 d-flex justify-content-center gap-4">
+                            <div>
+                                <span class="small text-muted">Độ tin cậy: </span>
+                                <span id="confidenceDisplay" class="badge bg-info">--</span>
+                            </div>
+                            <div>
+                                <span class="small text-muted">Thời gian: </span>
+                                <span id="elapsedTimeDisplay" class="badge bg-secondary">00:00</span>
+                            </div>
                         </div>
                         <span id="status" class="badge bg-secondary px-3 py-2 rounded-pill">Chờ tín hiệu...</span>
                     </div>
@@ -311,12 +317,46 @@
 
     let currentMode = 'prescription';
     let currentImage = "";
+    
+    // --- ELAPSED TIME TIMER ---
+    let countingStartTime = null;
+    let timerInterval = null;
+    const elapsedTimeEl = document.getElementById('elapsedTimeDisplay');
+    
+    function startTimer() {
+        if (timerInterval) return; // Đã chạy rồi
+        countingStartTime = Date.now();
+        timerInterval = setInterval(() => {
+            const elapsed = Date.now() - countingStartTime;
+            const mins = Math.floor(elapsed / 60000).toString().padStart(2, '0');
+            const secs = Math.floor((elapsed % 60000) / 1000).toString().padStart(2, '0');
+            const ms = Math.floor((elapsed % 1000) / 10).toString().padStart(2, '0');
+            elapsedTimeEl.innerText = `${mins}:${secs}:${ms}`;
+            elapsedTimeEl.className = 'badge bg-warning text-dark';
+        }, 10); // Cập nhật mỗi 10ms
+    }
+    
+    function stopTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            elapsedTimeEl.className = 'badge bg-success';
+        }
+    }
+    
+    function resetTimer() {
+        stopTimer();
+        countingStartTime = null;
+        elapsedTimeEl.innerText = '00:00:00';
+        elapsedTimeEl.className = 'badge bg-secondary';
+    }
 
     // --- 1. CHUYỂN TAB (THEO ĐƠN / TỰ DO) ---
     window.setMode = function (mode) {
         currentMode = mode;
         socket.emit('reset_counting');
         countEl.innerText = "0";
+        resetTimer(); // Reset timer khi chuyển mode
         setUIState(false);
         
         // Toggle active class cho các tab
@@ -446,6 +486,14 @@
         img.src = data.processed_image;
         currentImage = data.processed_image;
         countEl.innerText = data.count;
+        
+        // --- TIMER LOGIC ---
+        if (data.count > 0 && !timerInterval) {
+            startTimer(); // Bắt đầu timer khi phát hiện viên thuốc đầu tiên
+        }
+        if (data.is_locked) {
+            stopTimer(); // Dừng timer khi đã chốt
+        }
 
         // UPDATE CONFIDENCE DISPLAY
         const confEl = document.getElementById('confidenceDisplay');
@@ -567,6 +615,9 @@
                 return; // BLOCK SAVE
             }
 
+            // Tính elapsed time (ms)
+            const elapsedMs = countingStartTime ? (Date.now() - countingStartTime) : 0;
+            
             fetch('/pharmacist/api/save-result', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -574,7 +625,8 @@
                     mode: 'prescription',
                     detail_id: detailId,
                     count: countEl.innerText,
-                    image: currentImage
+                    image: currentImage,
+                    elapsed_ms: elapsedMs
                 })
             })
                 .then(r => r.json())

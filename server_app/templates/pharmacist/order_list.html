@@ -53,7 +53,7 @@
                 <tr>
                     <td class="fw-bold text-primary">{{ order.ma_don_thuoc }}</td>
                     <td>{{ order.ten_benh_nhan or '---' }}</td>
-                    <td>{{ order.thoi_gian_tao_don.strftime('%H:%M %d/%m/%Y') }}</td>
+                    <td>{{ order.thoi_gian_tao_don | vn_time }}</td>
                     <td class="text-center">{{ order.tong_so_loai_thuoc }}</td>
                     <td class="text-center">{{ order.tong_vien_yeu_cau }}</td>
                     <td class="text-center">
@@ -82,8 +82,10 @@
                             </button>
                         </form>
                         {% else %}
-                        <!-- Đơn hoàn thành - chỉ hiện nút xem -->
-                        <span class="text-muted small"><i class="bi bi-check-circle"></i> Đã xử lý</span>
+                        <!-- Đơn hoàn thành - nút xem chi tiết -->
+                        <button class="btn btn-sm btn-outline-info btn-view-detail" data-order-id="{{ order.id }}" title="Xem chi tiết">
+                            <i class="bi bi-eye"></i> Xem
+                        </button>
                         {% endif %}
                     </td>
                 </tr>
@@ -113,4 +115,90 @@
         </nav>
     </div>
 </div>
+
+<!-- MODAL XEM CHI TIẾT ĐƠN -->
+<div class="modal fade" id="orderDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-prescription2"></i> Chi Tiết Đơn Thuốc</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Mã đơn:</strong> <span id="modalOrderCode">---</span></p>
+                        <p class="mb-1"><strong>Dược sĩ:</strong> <span id="modalPharmacist">---</span></p>
+                        <p class="mb-1"><strong>TG xử lý:</strong> <span id="modalProcessingTime" class="badge bg-success">---</span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Ngày tạo:</strong> <span id="modalCreatedAt">---</span></p>
+                        <p class="mb-1"><strong>Hoàn thành:</strong> <span id="modalCompletedAt">---</span></p>
+                    </div>
+                </div>
+                <hr>
+                <h6 class="fw-bold mb-3">Chi tiết thuốc:</h6>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Tên thuốc</th>
+                            <th class="text-center">Yêu cầu</th>
+                            <th class="text-center">Đã đếm</th>
+                            <th class="text-center">Chênh lệch</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalDrugList"></tbody>
+                </table>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <span class="badge bg-primary">Tổng yêu cầu: <strong id="modalTotalRequired">0</strong> viên</span>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <span class="badge bg-success">Đã đếm: <strong id="modalTotalCounted">0</strong> viên</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('.btn-view-detail').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const orderId = this.dataset.orderId;
+        fetch(`/pharmacist/api/order-details/${orderId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) return alert('Lỗi: ' + data.error);
+                
+                document.getElementById('modalOrderCode').textContent = data.ma_don_thuoc;
+                document.getElementById('modalPharmacist').textContent = data.duoc_si_xu_ly;
+                document.getElementById('modalCreatedAt').textContent = data.thoi_gian_tao_don;
+                document.getElementById('modalCompletedAt').textContent = data.thoi_gian_ket_thuc;
+                document.getElementById('modalProcessingTime').textContent = data.thoi_gian_xu_ly || 'N/A';
+                document.getElementById('modalTotalRequired').textContent = data.tong_vien_yeu_cau;
+                document.getElementById('modalTotalCounted').textContent = data.tong_vien_dem_duoc;
+                
+                const tbody = document.getElementById('modalDrugList');
+                tbody.innerHTML = '';
+                data.chi_tiet.forEach(item => {
+                    const diff = item.chenh_lech;
+                    const diffClass = diff === 0 ? 'text-success' : (diff > 0 ? 'text-warning' : 'text-danger');
+                    const diffText = diff === 0 ? '✓ Khớp' : (diff > 0 ? `+${diff}` : diff);
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${item.ten_thuoc}</td>
+                            <td class="text-center">${item.so_luong_yeu_cau}</td>
+                            <td class="text-center">${item.so_luong_dem_duoc}</td>
+                            <td class="text-center ${diffClass}">${diffText}</td>
+                        </tr>
+                    `;
+                });
+                
+                new bootstrap.Modal(document.getElementById('orderDetailModal')).show();
+            })
+            .catch(err => alert('Lỗi kết nối: ' + err));
+    });
+});
+</script>
 {% endblock %}

@@ -12,7 +12,8 @@
 
     <!-- Filter Card -->
     <div class="card shadow mb-4">
-        <a href="#collapseFilterCard" class="d-block card-header py-3" data-toggle="collapse" role="button" aria-expanded="true" aria-controls="collapseFilterCard">
+        <a href="#collapseFilterCard" class="d-block card-header py-3" data-toggle="collapse" role="button"
+            aria-expanded="true" aria-controls="collapseFilterCard">
             <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-filter mr-2"></i>Bộ lọc báo cáo</h6>
         </a>
         <!-- Card Content - Collapsible -->
@@ -22,22 +23,27 @@
                     <!-- Time Range Selection -->
                     <div class="form-group">
                         <select class="form-control" id="timeRange" name="range" style="max-width: 350px;">
-                            <option value="today" {% if selected_range == 'today' %}selected{% endif %}>Hôm nay</option>
-                            <option value="7_days" {% if selected_range == '7_days' %}selected{% endif %}>7 ngày qua</option>
-                            <option value="this_month" {% if selected_range == 'this_month' %}selected{% endif %}>Tháng này</option>
-                            <option value="custom" {% if selected_range == 'custom' %}selected{% endif %}>Tùy chọn ngày...</option>
+                            <option value="today" {% if selected_range=='today' %}selected{% endif %}>Hôm nay</option>
+                            <option value="7_days" {% if selected_range=='7_days' %}selected{% endif %}>7 ngày qua
+                            </option>
+                            <option value="this_month" {% if selected_range=='this_month' %}selected{% endif %}>Tháng
+                                này</option>
+                            <option value="custom" {% if selected_range=='custom' %}selected{% endif %}>Tùy chọn ngày...
+                            </option>
                         </select>
                     </div>
-                    
+
                     <!-- Custom Date Range (Hidden by default) -->
                     <div id="customDateRange" class="form-row mb-3" style="display: none; max-width: 450px;">
                         <div class="col">
                             <label for="start_date">Từ ngày</label>
-                            <input id="start_date" type="date" class="form-control" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') if start_date else '' }}">
+                            <input id="start_date" type="date" class="form-control" name="start_date"
+                                value="{{ start_date.strftime('%Y-%m-%d') if start_date else '' }}">
                         </div>
                         <div class="col">
-                             <label for="end_date">Đến ngày</label>
-                             <input id="end_date" type="date" class="form-control" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') if end_date else '' }}">
+                            <label for="end_date">Đến ngày</label>
+                            <input id="end_date" type="date" class="form-control" name="end_date"
+                                value="{{ end_date.strftime('%Y-%m-%d') if end_date else '' }}">
                         </div>
                     </div>
 
@@ -46,7 +52,8 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-search mr-1"></i> Xem báo cáo
                         </button>
-                        <a href="{{ url_for('admin.export_reports', range=selected_range, start_date=start_date.strftime('%Y-%m-%d') if start_date, end_date=end_date.strftime('%Y-%m-%d') if end_date) }}" class="btn btn-success">
+                        <a href="{{ url_for('admin.export_reports', range=selected_range, start_date=start_date.strftime('%Y-%m-%d') if start_date, end_date=end_date.strftime('%Y-%m-%d') if end_date) }}"
+                            class="btn btn-success">
                             <i class="fas fa-file-excel mr-1"></i> Xuất Excel
                         </a>
                     </div>
@@ -54,7 +61,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Báo cáo Hiệu suất Dược sĩ -->
     <div class="card shadow mb-4">
         <div class="card-header py-3">
@@ -67,8 +74,8 @@
                         <tr>
                             <th>Tên Dược Sĩ</th>
                             <th>Tổng Số Đơn Đã Xử Lý</th>
-                            <th>Thời Gian Xử Lý Trung Bình (giây)</th>
-                            <th>Tỷ Lệ Chính Xác (%)</th>
+                            <th>Thời Gian Xử Lý Trung Bình</th>
+                            <th>Số Thuốc Đã Đếm</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -76,8 +83,8 @@
                         <tr>
                             <td>{{ perf.ho_ten }}</td>
                             <td>{{ perf.total_prescriptions }}</td>
-                            <td>{{ "%.2f"|format(perf.avg_time) if perf.avg_time else 'N/A' }}</td>
-                            <td>{{ perf.ty_le_chinh_xac if perf.ty_le_chinh_xac else 'N/A' }}</td>
+                            <td>{{ perf.avg_time | formatted_time }}</td>
+                            <td>{{ perf.total_pills_counted or 0 }}</td>
                         </tr>
                         {% else %}
                         <tr>
@@ -146,7 +153,8 @@
                                 {% for drug in low_stock_drugs %}
                                 <tr class="table-warning">
                                     <td>{{ drug.ten_thuoc }}</td>
-                                    <td><span class="font-weight-bold text-danger">{{ drug.ton_kho_uoc_tinh }}</span></td>
+                                    <td><span class="font-weight-bold text-danger">{{ drug.ton_kho_uoc_tinh }}</span>
+                                    </td>
                                     <td>{{ drug.nguong_canh_bao }}</td>
                                 </tr>
                                 {% else %}
@@ -168,23 +176,23 @@
 {{ super() }}
 <!-- Script để ẩn/hiện bộ lọc ngày tùy chỉnh -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const timeRangeSelect = document.getElementById('timeRange');
-    const customDateRangeDiv = document.getElementById('customDateRange');
+    document.addEventListener('DOMContentLoaded', function () {
+        const timeRangeSelect = document.getElementById('timeRange');
+        const customDateRangeDiv = document.getElementById('customDateRange');
 
-    function toggleCustomDateRange() {
-        if (timeRangeSelect.value === 'custom') {
-            customDateRangeDiv.style.display = 'flex';
-        } else {
-            customDateRangeDiv.style.display = 'none';
+        function toggleCustomDateRange() {
+            if (timeRangeSelect.value === 'custom') {
+                customDateRangeDiv.style.display = 'flex';
+            } else {
+                customDateRangeDiv.style.display = 'none';
+            }
         }
-    }
 
-    // Kiểm tra khi tải trang
-    toggleCustomDateRange();
+        // Kiểm tra khi tải trang
+        toggleCustomDateRange();
 
-    // Lắng nghe sự kiện thay đổi
-    timeRangeSelect.addEventListener('change', toggleCustomDateRange);
-});
+        // Lắng nghe sự kiện thay đổi
+        timeRangeSelect.addEventListener('change', toggleCustomDateRange);
+    });
 </script>
 {% endblock %}

@@ -58,8 +58,7 @@
                         {% for order in orders.items %}
                         <tr>
                             <td class="ps-4 fw-bold">{{ order.ma_don_thuoc }}</td>
-                            <td>{{ order.thoi_gian_ket_thuc.strftime('%H:%M - %d/%m/%Y') if order.thoi_gian_ket_thuc
-                                else 'N/A' }}</td>
+                            <td>{{ order.thoi_gian_ket_thuc | vn_time('%H:%M - %d/%m/%Y') }}</td>
                             <td class="text-center">
                                 <span class="badge bg-info">{{ order.chi_tiet_don|list|length }} loại</span>
                             </td>
@@ -154,9 +153,8 @@
                             <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Tổng số viên:</strong>
                                 <span id="modalTotalCounted" class="fw-bold text-success"></span>
                             </p>
-                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Thời gian xử
-                                    lý:</strong>
-                                <span id="modalProcessingTime"></span> giây
+                            <p class="mb-1"><strong class="d-inline-block" style="width: 150px;">Thời gian xử lý:</strong>
+                                <span id="modalProcessingTime" class="badge bg-success"></span>
                             </p>
                         </div>
                     </div>
@@ -246,7 +244,7 @@
                 modalPharmacist.textContent = data.duoc_si_xu_ly;
                 modalCreatedAt.textContent = data.thoi_gian_tao_don;
                 modalCompletedAt.textContent = data.thoi_gian_ket_thuc;
-                modalProcessingTime.textContent = data.thoi_gian_xu_ly_giay || 'N/A';
+                modalProcessingTime.textContent = data.thoi_gian_xu_ly || 'N/A';
                 modalTotalTypes.textContent = `${data.chi_tiet.length} loại`;
                 modalTotalCounted.textContent = `${data.tong_vien_dem_duoc} viên`;
 

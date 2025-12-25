@@ -1,0 +1,186 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Thông Báo{% endblock %}
+{% block page_title %}Quản Lý Thông Báo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-1"><i class="bi bi-bell-fill text-primary me-2"></i>Tất cả thông báo</h4>
+            <p class="text-muted mb-0">Quản lý và theo dõi các thông báo hệ thống</p>
+        </div>
+        {% if notifications and notifications|length > 0 %}
+        <form method="POST" action="{{ url_for('admin.mark_all_read') }}">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check2-all me-1"></i> Đánh dấu tất cả đã đọc
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Search & Filter -->
+    <div class="card mb-4">
+        <div class="card-body py-3">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label small text-muted">Tìm kiếm</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" name="search_query" class="form-control" placeholder="Tìm theo nội dung..."
+                            value="{{ search_query or '' }}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-muted">Lọc theo loại</label>
+                    <select name="filter_loai" class="form-select" onchange="this.form.submit()">
+                        <option value="">📋 Tất cả loại</option>
+                        <option value="info" {% if current_filter=='info' %}selected{% endif %}>ℹ️ Thông tin</option>
+                        <option value="warning" {% if current_filter=='warning' %}selected{% endif %}>⚠️ Cảnh báo
+                        </option>
+                        <option value="error" {% if current_filter=='error' %}selected{% endif %}>❌ Lỗi</option>
+                        <option value="success" {% if current_filter=='success' %}selected{% endif %}>✅ Thành công
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel me-1"></i> Lọc
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notifications List -->
+    {% if notifications and notifications|length > 0 %}
+    <div class="card">
+        <div class="list-group list-group-flush">
+            {% for notif in notifications %}
+            <div class="list-group-item {% if not notif.da_doc %}bg-light border-start border-4 border-primary{% endif %}"
+                data-notification-id="{{ notif.id }}">
+                <div class="d-flex align-items-start gap-3">
+                    <!-- Icon -->
+                    <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 48px; height: 48px;
+                         {% if notif.loai.name == 'info' %}background: #dbeafe; color: #3b82f6;
+                         {% elif notif.loai.name == 'warning' %}background: #fef3c7; color: #f59e0b;
+                         {% elif notif.loai.name == 'error' %}background: #fee2e2; color: #ef4444;
+                         {% else %}background: #d1fae5; color: #10b981;{% endif %}">
+                        {% if notif.loai.name == 'info' %}<i class="bi bi-info-circle-fill fs-5"></i>
+                        {% elif notif.loai.name == 'warning' %}<i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                        {% elif notif.loai.name == 'error' %}<i class="bi bi-x-circle-fill fs-5"></i>
+                        {% else %}<i class="bi bi-check-circle-fill fs-5"></i>{% endif %}
+                    </div>
+
+                    <!-- Content -->
+                    <div class="flex-grow-1 min-width-0">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <h6 class="mb-0 fw-bold">{{ notif.tieu_de }}</h6>
+                            <small class="text-muted flex-shrink-0 ms-2">{{ notif.ngay_tao.strftime('%H:%M %d/%m/%Y')
+                                }}</small>
+                        </div>
+                        <p class="mb-1 text-muted">{{ notif.noi_dung }}</p>
+                        <span class="badge 
+                            {% if notif.loai.name == 'info' %}bg-info text-white
+                            {% elif notif.loai.name == 'warning' %}bg-warning text-dark
+                            {% elif notif.loai.name == 'error' %}bg-danger
+                            {% else %}bg-success{% endif %}">
+                            {{ notif.loai.value }}
+                        </span>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex-shrink-0">
+                        <button
+                            class="btn btn-sm {% if notif.da_doc %}btn-outline-success{% else %}btn-outline-secondary{% endif %}"
+                            onclick="toggleRead({{ notif.id }}, this)"
+                            title="{% if notif.da_doc %}Đánh dấu chưa đọc{% else %}Đánh dấu đã đọc{% endif %}">
+                            {% if notif.da_doc %}
+                            <i class="bi bi-check2"></i> Đã đọc
+                            {% else %}
+                            <i class="bi bi-circle"></i> Chưa đọc
+                            {% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link"
+                    href="{{ url_for('admin.all_notifications', page=pagination.prev_num, filter_loai=current_filter, search_query=search_query) }}">←
+                    Trước</a>
+            </li>
+            {% endif %}
+
+            {% for page_num in pagination.iter_pages() %}
+            {% if page_num %}
+            <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                <a class="page-link"
+                    href="{{ url_for('admin.all_notifications', page=page_num, filter_loai=current_filter, search_query=search_query) }}">{{
+                    page_num }}</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link"
+                    href="{{ url_for('admin.all_notifications', page=pagination.next_num, filter_loai=current_filter, search_query=search_query) }}">Tiếp
+                    →</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-bell-slash display-1 text-muted opacity-50 mb-3"></i>
+            <h5>Không có thông báo</h5>
+            <p class="text-muted mb-0">Bạn chưa có thông báo nào. Quay lại sau để kiểm tra!</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    async function toggleRead(id, btn) {
+        try {
+            const response = await fetch(`/admin/notifications/${id}/toggle-read`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const item = btn.closest('.list-group-item');
+
+                if (data.da_doc) {
+                    item.classList.remove('bg-light', 'border-start', 'border-4', 'border-primary');
+                    btn.className = 'btn btn-sm btn-outline-success';
+                    btn.innerHTML = '<i class="bi bi-check2"></i> Đã đọc';
+                } else {
+                    item.classList.add('bg-light', 'border-start', 'border-4', 'border-primary');
+                    btn.className = 'btn btn-sm btn-outline-secondary';
+                    btn.innerHTML = '<i class="bi bi-circle"></i> Chưa đọc';
+                }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+</script>
+{% endblock %}

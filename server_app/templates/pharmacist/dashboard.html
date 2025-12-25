@@ -20,7 +20,7 @@
         <div class="col-xl-3 col-md-6">
             <div class="stats-card h-100">
                 <div class="stats-icon text-white">
-                    <i class="fas fa-file-prescription"></i>
+                    <i class="fa-solid fa-boxes-stacked"></i>
                 </div>
                 <div class="stats-value">{{ orders_today | default(0) }}</div>
                 <div class="stats-label">Đơn đã xử lý hôm nay</div>
@@ -28,7 +28,8 @@
         </div>
 
         <div class="col-xl-3 col-md-6">
-            <div class="stats-card h-100" style="background: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-teal-dark) 100%);">
+            <div class="stats-card h-100"
+                style="background: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-teal-dark) 100%);">
                 <div class="stats-icon">
                     <i class="fas fa-pills"></i>
                 </div>
@@ -38,21 +39,27 @@
         </div>
 
         <div class="col-xl-3 col-md-6">
-            <div class="stats-card h-100" style="background: linear-gradient(135deg, var(--accent-green) 0%, #2b8a3e 100%);">
+            <div class="stats-card h-100"
+                style="background: linear-gradient(135deg, var(--accent-green) 0%, #2b8a3e 100%);">
                 <div class="stats-icon">
-                    <i class="fas fa-check-circle"></i>
+                    <i class="fa-solid fa-prescription-bottle"></i>
                 </div>
-                <div class="stats-value">{{ accuracy | default(100) }}%</div>
-                <div class="stats-label">Độ chính xác trung bình</div>
+                <div class="stats-value">{{ drug_types_today | default(0) }}</div>
+                <div class="stats-label">Loại thuốc đã đếm</div>
             </div>
         </div>
 
         <div class="col-xl-3 col-md-6">
-            <div class="stats-card h-100" style="background: linear-gradient(135deg, var(--accent-orange) 0%, #e67700 100%);">
+            <div class="stats-card h-100"
+                style="background: linear-gradient(135deg, var(--accent-orange) 0%, #e67700 100%);">
                 <div class="stats-icon">
                     <i class="fas fa-stopwatch"></i>
                 </div>
-                <div class="stats-value">{{ avg_time | default(0) }}s</div>
+                {% set total_ms = avg_time | default(0) | int %}
+                {% set mins = (total_ms // 60000) %}
+                {% set secs = ((total_ms % 60000) // 1000) %}
+                {% set ms = (total_ms % 1000) %}
+                <div class="stats-value">{% if mins > 0 %}{{ mins }}m {% endif %}{{ secs }}s {{ ms }}ms</div>
                 <div class="stats-label">Thời gian/đơn TB</div>
             </div>
         </div>
@@ -79,45 +86,49 @@
                             </thead>
                             <tbody>
                                 {% if pending_orders %}
-                                    {% for order in pending_orders %}
-                                    <tr>
-                                        <td class="ps-4 fw-bold text-dark">{{ order.ma_don_thuoc }}</td>
-                                        <td class="text-muted small">
-                                            <i class="far fa-clock me-1"></i>
-                                            {{ order.thoi_gian_tao_don.strftime('%H:%M') }} 
-                                            <span class="text-muted fst-italic">({{ order.thoi_gian_tao_don.strftime('%d/%m') }})</span>
-                                        </td>
-                                        <td class="text-center">
-                                            <span class="badge bg-light text-dark border">{{ order.tong_so_loai_thuoc }} loại</span>
-                                        </td>
-                                        <td>
-                                            {% if order.trang_thai_don.name == 'counting' %}
-                                                <span class="badge bg-warning text-dark">Đang đếm</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary">Chờ xử lý</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="text-end pe-4">
-                                            <a href="{{ url_for('pharmacist.counting_page_no_id') }}" class="btn btn-sm btn-success fw-medium shadow-sm">
-                                                <i class="fas fa-play me-1"></i> Xử lý ngay
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
+                                {% for order in pending_orders %}
+                                <tr>
+                                    <td class="ps-4 fw-bold text-dark">{{ order.ma_don_thuoc }}</td>
+                                    <td class="text-muted small">
+                                        <i class="far fa-clock me-1"></i>
+                                        {{ order.thoi_gian_tao_don.strftime('%H:%M') }}
+                                        <span class="text-muted fst-italic">({{
+                                            order.thoi_gian_tao_don.strftime('%d/%m') }})</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark border">{{ order.tong_so_loai_thuoc }}
+                                            loại</span>
+                                    </td>
+                                    <td>
+                                        {% if order.trang_thai_don.name == 'counting' %}
+                                        <span class="badge bg-warning text-dark">Đang đếm</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Chờ xử lý</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <a href="{{ url_for('pharmacist.counting_page_no_id') }}"
+                                            class="btn btn-sm btn-success fw-medium shadow-sm">
+                                            <i class="fas fa-play me-1"></i> Xử lý ngay
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
                                 {% else %}
-                                    <tr>
-                                        <td colspan="5" class="text-center py-5 text-muted">
-                                            <div class="mb-3 opacity-50 display-4"><i class="fas fa-check-circle"></i></div>
-                                            <p class="mb-0">Tuyệt vời! Không còn đơn thuốc nào đang chờ.</p>
-                                        </td>
-                                    </tr>
+                                <tr>
+                                    <td colspan="5" class="text-center py-5 text-muted">
+                                        <div class="mb-3 opacity-50 display-4"><i class="fas fa-check-circle"></i></div>
+                                        <p class="mb-0">Tuyệt vời! Không còn đơn thuốc nào đang chờ.</p>
+                                    </td>
+                                </tr>
                                 {% endif %}
                             </tbody>
                         </table>
                     </div>
                 </div>
                 <div class="card-footer bg-white text-center border-top-0 py-3">
-                    <a href="{{ url_for('pharmacist.order_list') }}" class="text-decoration-none text-muted small fw-medium">
+                    <a href="{{ url_for('pharmacist.order_list') }}"
+                        class="text-decoration-none text-muted small fw-medium">
                         Xem tất cả đơn hàng <i class="fas fa-arrow-right ms-1"></i>
                     </a>
                 </div>
@@ -125,7 +136,7 @@
         </div>
 
         <div class="col-lg-4">
-            
+
             <div class="card shadow-sm border-0 mb-4">
                 <div class="card-header bg-white py-3 border-bottom">
                     <h6 class="m-0 fw-bold text-dark"><i class="fas fa-bell me-2 text-warning"></i>Thông báo mới</h6>
@@ -133,21 +144,22 @@
                 <div class="card-body p-0">
                     <div class="list-group list-group-flush">
                         {% if recent_notifications %}
-                            {% for notif in recent_notifications %}
-                            <a href="{{ url_for('pharmacist.view_notification', id=notif.id) }}" class="list-group-item list-group-item-action border-0 py-3">
-                                <div class="d-flex w-100 justify-content-between align-items-start mb-1">
-                                    <strong class="text-dark small {{ 'fw-bold' if not notif.da_doc else 'fw-normal' }}">
-                                        {{ notif.tieu_de }}
-                                    </strong>
-                                    <small class="text-muted ms-2" style="font-size: 0.75rem;">
-                                        {{ notif.ngay_tao.strftime('%d/%m') }}
-                                    </small>
-                                </div>
-                                <p class="mb-0 text-muted small text-truncate">{{ notif.noi_dung }}</p>
-                            </a>
-                            {% endfor %}
+                        {% for notif in recent_notifications %}
+                        <a href="{{ url_for('pharmacist.view_notification', id=notif.id) }}"
+                            class="list-group-item list-group-item-action border-0 py-3">
+                            <div class="d-flex w-100 justify-content-between align-items-start mb-1">
+                                <strong class="text-dark small {{ 'fw-bold' if not notif.da_doc else 'fw-normal' }}">
+                                    {{ notif.tieu_de }}
+                                </strong>
+                                <small class="text-muted ms-2" style="font-size: 0.75rem;">
+                                    {{ notif.ngay_tao.strftime('%d/%m') }}
+                                </small>
+                            </div>
+                            <p class="mb-0 text-muted small text-truncate">{{ notif.noi_dung }}</p>
+                        </a>
+                        {% endfor %}
                         {% else %}
-                            <div class="p-4 text-center text-muted small">Không có thông báo mới</div>
+                        <div class="p-4 text-center text-muted small">Không có thông báo mới</div>
                         {% endif %}
                     </div>
                 </div>
@@ -155,33 +167,36 @@
 
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white py-3 border-bottom">
-                    <h6 class="m-0 fw-bold text-dark"><i class="fas fa-history me-2 text-info"></i>Hoạt động vừa qua</h6>
+                    <h6 class="m-0 fw-bold text-dark"><i class="fas fa-history me-2 text-info"></i>Hoạt động vừa qua
+                    </h6>
                 </div>
                 <div class="card-body">
                     <div class="timeline ps-2">
                         {% if recent_history %}
-                            {% for hist in recent_history %}
-                            <div class="timeline-item pb-3 ps-4 border-start ms-2 position-relative">
-                                <div class="position-absolute top-0 start-0 translate-middle rounded-circle bg-white border border-2 
+                        {% for hist in recent_history %}
+                        <div class="timeline-item pb-3 ps-4 border-start ms-2 position-relative">
+                            <div class="position-absolute top-0 start-0 translate-middle rounded-circle bg-white border border-2 
                                     {% if hist.trang_thai_khop.name == 'perfect' %}border-success text-success
                                     {% elif hist.trang_thai_khop.name == 'mismatch' %}border-danger text-danger
-                                    {% else %}border-warning text-warning{% endif %}" 
-                                    style="width: 12px; height: 12px; margin-top: 0.25rem;">
-                                </div>
-                                <p class="mb-1 small text-muted">{{ hist.thoi_gian_ket_thuc.strftime('%H:%M %d/%m') if hist.thoi_gian_ket_thuc else 'Vừa xong' }}</p>
-                                <h6 class="mb-1 text-dark font-size-sm">Hoàn thành đơn 
-                                    <span class="fw-bold text-primary">{{ hist.ma_don_thuoc }}</span>
-                                </h6>
-                                <span class="badge 
+                                    {% else %}border-warning text-warning{% endif %}"
+                                style="width: 12px; height: 12px; margin-top: 0.25rem;">
+                            </div>
+                            <p class="mb-1 small text-muted">{{ hist.thoi_gian_ket_thuc.strftime('%H:%M %d/%m') if
+                                hist.thoi_gian_ket_thuc else 'Vừa xong' }}</p>
+                            <h6 class="mb-1 text-dark font-size-sm">Hoàn thành đơn
+                                <span class="fw-bold text-primary">{{ hist.ma_don_thuoc }}</span>
+                            </h6>
+                            <span class="badge 
                                     {% if hist.trang_thai_khop.name == 'perfect' %}bg-success
                                     {% elif hist.trang_thai_khop.name == 'mismatch' %}bg-danger
-                                    {% else %}bg-warning{% endif %} bg-opacity-10 text-dark px-2 py-1 rounded-1" style="font-size: 0.75rem;">
-                                    {{ hist.trang_thai_khop.value }}
-                                </span>
-                            </div>
-                            {% endfor %}
+                                    {% else %}bg-warning{% endif %} bg-opacity-10 text-dark px-2 py-1 rounded-1"
+                                style="font-size: 0.75rem;">
+                                {{ hist.trang_thai_khop.value }}
+                            </span>
+                        </div>
+                        {% endfor %}
                         {% else %}
-                            <p class="text-muted small text-center mb-0">Chưa có hoạt động nào.</p>
+                        <p class="text-muted small text-center mb-0">Chưa có hoạt động nào.</p>
                         {% endif %}
                     </div>
                 </div>

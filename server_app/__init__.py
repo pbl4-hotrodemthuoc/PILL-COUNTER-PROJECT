@@ -72,6 +72,33 @@ def create_app():
     # --- Đăng ký các lệnh CLI ---
     register_commands(app)
 
+    # --- Đăng ký Custom Template Filters ---
+    @app.template_filter('vn_time')
+    def vn_time_filter(value, format='%H:%M %d/%m/%Y'):
+        if value is None:
+            return "N/A"
+        from datetime import timedelta
+        # Cộng 7 giờ vào thời gian UTC
+        vn_value = value + timedelta(hours=7)
+        return vn_value.strftime(format)
+
+    @app.template_filter('formatted_time')
+    def formatted_time_filter(value):
+        """Format milliseconds to 'Xm Ys Zms'"""
+        if not value:
+            return "0ms"
+        try:
+            total_ms = int(float(value))
+            minutes = total_ms // 60000
+            seconds = (total_ms % 60000) // 1000
+            ms = total_ms % 1000
+            if minutes > 0:
+                return f"{minutes}m {seconds}s {ms}ms"
+            else:
+                return f"{seconds}s {ms}ms"
+        except (ValueError, TypeError):
+            return "N/A"
+
     return app
 
 def register_commands(app):

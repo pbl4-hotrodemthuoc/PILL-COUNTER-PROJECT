@@ -918,8 +918,8 @@ def dashboard():
     stats_query = db.session.query(
         func.count(DonThuoc.id).label('total_orders'),
         func.sum(DonThuoc.tong_vien_dem_duoc).label('total_pills'),
-        func.avg(DonThuoc.thoi_gian_xu_ly_giay).label('avg_time'),
-        func.sum(DonThuoc.tong_vien_yeu_cau).label('total_requested')
+        func.avg(DonThuoc.thoi_gian_xu_ly_ms).label('avg_time'),
+        func.sum(DonThuoc.tong_so_loai_thuoc).label('total_drug_types')
     ).filter(
         DonThuoc.id_duoc_si == current_user.id,
         DonThuoc.trang_thai_don == 'completed',
@@ -929,13 +929,7 @@ def dashboard():
     orders_today = stats_query.total_orders or 0
     pills_today = int(stats_query.total_pills or 0) 
     avg_time = round(float(stats_query.avg_time or 0), 1)
-    
-    total_req = stats_query.total_requested or 0
-    accuracy = 100.0
-    if total_req > 0:
-        accuracy = (pills_today / total_req) * 100
-        if accuracy > 100: accuracy = 100 - (accuracy - 100)
-    accuracy = round(accuracy, 1)
+    drug_types_today = int(stats_query.total_drug_types or 0)
 
     pending_orders = DonThuoc.query.filter(
         DonThuoc.id_duoc_si == current_user.id,
@@ -954,7 +948,7 @@ def dashboard():
                            orders_today=orders_today,
                            pills_today=pills_today,
                            avg_time=avg_time,
-                           accuracy=accuracy,
+                           drug_types_today=drug_types_today,
                            pending_orders=pending_orders,
                            recent_notifications=recent_notifications,
                            recent_history=recent_history)
@@ -1043,7 +1037,7 @@ def my_stats():
         func.date(DonThuoc.thoi_gian_ket_thuc).between(start_date, end_date)
     ).scalar()
 
-    avg_time_query = base_query.with_entities(func.avg(DonThuoc.thoi_gian_xu_ly_giay)).scalar()
+    avg_time_query = base_query.with_entities(func.avg(DonThuoc.thoi_gian_xu_ly_ms)).scalar()
     
     # Số loại thuốc khác nhau đã đếm
     total_drug_types = db.session.query(
@@ -1067,7 +1061,7 @@ def my_stats():
         func.date(DonThuoc.thoi_gian_ket_thuc).label('date'),
         func.count(DonThuoc.id).label('order_count'),
         func.sum(DonThuoc.tong_vien_dem_duoc).label('pill_count'),
-        func.avg(DonThuoc.thoi_gian_xu_ly_giay).label('avg_time')
+        func.avg(DonThuoc.thoi_gian_xu_ly_ms).label('avg_time')
     ).filter(
         DonThuoc.id_duoc_si == current_user.id,
         DonThuoc.trang_thai_don == 'completed',
@@ -1126,6 +1120,16 @@ def report_incident():
             )
             db.session.add(new_rpt)
             db.session.commit()
+            
+            # ✅ GỬI THÔNG BÁO CHO TẤT CẢ ADMIN
+            from .utils import notify_all_admins
+            from .models import LoaiThongBaoEnum
+            notify_all_admins(
+                title=f"Báo cáo sự cố mới từ {current_user.ho_ten}",
+                content=f"Loại: {loai.value}. {mota[:100]}{'...' if len(mota) > 100 else ''}",
+                notif_type=LoaiThongBaoEnum.error
+            )
+            
             flash('Gửi báo cáo thành công!', 'success')
         except Exception as e: 
             flash(f'Lỗi gửi báo cáo: {e}', 'danger')
@@ -1237,11 +1241,28 @@ def get_order_details_full(order_id):
                 'chenh_lech': d.chenh_lech or 0
             })
 
+        # Chuyển thời gian sang giờ Việt Nam (UTC+7)
+        from datetime import timedelta
+        vn_offset = timedelta(hours=7)
+        
+        created_time = order.thoi_gian_tao_don + vn_offset
+        completed_time = (order.thoi_gian_ket_thuc + vn_offset) if order.thoi_gian_ket_thuc else None
+        
+        # Format thời gian xử lý ms -> m:ss:ms
+        processing_time_str = 'N/A'
+        if order.thoi_gian_xu_ly_ms:
+            total_ms = order.thoi_gian_xu_ly_ms
+            mins = total_ms // 60000
+            secs = (total_ms % 60000) // 1000
+            ms = total_ms % 1000
+            processing_time_str = f"{mins}m {secs}s {ms}ms"
+
         return jsonify({
             'ma_don_thuoc': order.ma_don_thuoc,
             'duoc_si_xu_ly': order.duoc_si.ho_ten,
-            'thoi_gian_tao_don': order.thoi_gian_tao_don.strftime('%H:%M %d/%m/%Y'),
-            'thoi_gian_ket_thuc': order.thoi_gian_ket_thuc.strftime('%H:%M %d/%m/%Y') if order.thoi_gian_ket_thuc else 'N/A',
+            'thoi_gian_tao_don': created_time.strftime('%H:%M %d/%m/%Y'),
+            'thoi_gian_ket_thuc': completed_time.strftime('%H:%M %d/%m/%Y') if completed_time else 'N/A',
+            'thoi_gian_xu_ly': processing_time_str,
             'tong_vien_yeu_cau': order.tong_vien_yeu_cau,
             'tong_vien_dem_duoc': order.tong_vien_dem_duoc,
             'chi_tiet': details
@@ -1280,6 +1301,11 @@ def save_result():
                 don.trang_thai_don = TrangThaiDonEnum.counting
                 don.thoi_gian_bat_dau = datetime.now()
             
+            # Cộng dồn thời gian đếm từ frontend (ms)
+            elapsed_ms = data.get('elapsed_ms', 0)
+            if elapsed_ms and elapsed_ms > 0:
+                don.thoi_gian_xu_ly_ms = (don.thoi_gian_xu_ly_ms or 0) + int(elapsed_ms)
+            
             don.tong_vien_dem_duoc = sum([(ct.so_luong_dem_duoc or 0) for ct in don.chi_tiet_don])
             
             # FLUSH TO ENSURE DATA IS WRITTEN BEFORE CHECK
@@ -1294,12 +1320,6 @@ def save_result():
             if all_done:
                 don.trang_thai_don = TrangThaiDonEnum.completed
                 don.thoi_gian_ket_thuc = datetime.now()
-                
-                # Calculate Duration
-                start_time = don.thoi_gian_bat_dau or don.thoi_gian_tao_don
-                if start_time:
-                    delta = don.thoi_gian_ket_thuc - start_time
-                    don.thoi_gian_xu_ly_giay = int(delta.total_seconds())  # Save actual time, even 0
                 
                 # Determine Overall Match Status
                 total_diff = sum([abs(ct.chenh_lech or 0) for ct in don.chi_tiet_don])
@@ -1349,6 +1369,16 @@ def save_result():
                         # 2. Update Usage Stats
                         drug.tong_luong_da_dem += cnt
                         drug.so_lan_duoc_dem += 1
+                        
+                        # ✅ CẢNH BÁO TỒN KHO THẤP (< 100 viên)
+                        if drug.ton_kho_uoc_tinh < 100 and drug.ton_kho_uoc_tinh > 0:
+                            from .utils import notify_all_admins
+                            from .models import LoaiThongBaoEnum
+                            notify_all_admins(
+                                title=f"Thuốc {drug.ten_thuoc} sắp hết",
+                                content=f"Còn khoảng {drug.ton_kho_uoc_tinh} viên. Vui lòng nhập thêm.",
+                                notif_type=LoaiThongBaoEnum.warning
+                            )
             
             db.session.commit()
             
@@ -1503,10 +1533,43 @@ def delete_order(order_id):
 @login_required
 def edit_order(order_id):
     order = DonThuoc.query.get_or_404(order_id)
+    
+    # Chỉ cho phép sửa đơn chưa hoàn thành
+    if order.trang_thai_don == TrangThaiDonEnum.completed:
+        flash('Không thể sửa đơn đã hoàn thành!', 'warning')
+        return redirect(url_for('pharmacist.order_list'))
+        
     if request.method == 'POST':
         order.ten_benh_nhan = request.form.get('patient_name')
         order.ghi_chu_duoc_si = request.form.get('note')
+        
+        # Cập nhật danh sách thuốc
+        drug_ids = request.form.getlist('drug_ids[]')
+        quantities = request.form.getlist('quantities[]')
+        
+        if drug_ids and quantities:
+            # Xóa các chi tiết cũ
+            ChiTietDonThuoc.query.filter_by(id_don_thuoc=order.id).delete()
+            
+            # Thêm chi tiết mới
+            total_types = 0
+            total_required = 0
+            for drug_id, qty in zip(drug_ids, quantities):
+                detail = ChiTietDonThuoc(
+                    id_don_thuoc=order.id,
+                    id_loai_thuoc=int(drug_id),
+                    so_luong_yeu_cau=int(qty)
+                )
+                db.session.add(detail)
+                total_types += 1
+                total_required += int(qty)
+            
+            # Cập nhật tổng
+            order.tong_so_loai_thuoc = total_types
+            order.tong_vien_yeu_cau = total_required
+        
         db.session.commit()
+        flash('Đã cập nhật đơn thuốc thành công!', 'success')
         return redirect(url_for('pharmacist.order_list'))
     return render_template('pharmacist/edit_order.html', order=order)
 

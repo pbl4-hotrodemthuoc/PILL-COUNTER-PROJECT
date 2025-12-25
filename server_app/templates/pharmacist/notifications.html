@@ -3,6 +3,7 @@
 {% block content %}
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -475,18 +476,19 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container-notifications">
         <!-- Header -->
         <div class="notifications-header">
-            <h1>📬 Tất cả thông báo</h1>
+            <h1><i class="fas fa-bell"></i> Tất cả thông báo</h1>
             <div class="header-actions">
                 {% if notifications and notifications|length > 0 %}
-                    <form method="POST" action="{{ url_for('pharmacist.mark_all_read') }}" style="margin: 0;">
-                        <button type="submit" class="btn btn-primary">
-                            ✓ Đánh dấu tất cả đã đọc
-                        </button>
-                    </form>
+                <form method="POST" action="{{ url_for('pharmacist.mark_all_read') }}" style="margin: 0;">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check-double"></i> Đánh dấu tất cả đã đọc
+                    </button>
+                </form>
                 {% endif %}
             </div>
         </div>
@@ -495,109 +497,117 @@
         <div class="search-filter-bar">
             <div class="search-box">
                 <form method="GET" style="display: flex; gap: 0.75rem; margin: 0;">
-                    <input 
-                        type="text" 
-                        name="search_query" 
-                        placeholder="🔍 Tìm kiếm thông báo..." 
-                        value="{{ search_query or '' }}"
-                    >
-                    <button type="submit" class="btn btn-primary">Tìm</button>
+                    <input type="text" name="search_query" placeholder="🔍 Tìm kiếm thông báo..."
+                        value="{{ search_query or '' }}">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Tìm</button>
                 </form>
             </div>
-            <select name="filter_loai" class="filter-select" onchange="location.href='{{ url_for('pharmacist.all_notifications') }}?filter_loai=' + this.value + '&search_query={{ search_query or '' }}'">
+            <select name="filter_loai" class="filter-select"
+                onchange="location.href='{{ url_for('pharmacist.all_notifications') }}?filter_loai=' + this.value + '&search_query={{ search_query or '' }}'">
                 <option value="">Tất cả loại</option>
-                <option value="info" {% if current_filter == 'info' %}selected{% endif %}>ℹ️ Thông tin</option>
-                <option value="warning" {% if current_filter == 'warning' %}selected{% endif %}>⚠️ Cảnh báo</option>
-                <option value="error" {% if current_filter == 'error' %}selected{% endif %}>❌ Lỗi</option>
-                <option value="success" {% if current_filter == 'success' %}selected{% endif %}>✅ Thành công</option>
+                <option value="info" {% if current_filter=='info' %}selected{% endif %}>Thông tin</option>
+                <option value="warning" {% if current_filter=='warning' %}selected{% endif %}>Cảnh báo</option>
+                <option value="error" {% if current_filter=='error' %}selected{% endif %}>Lỗi</option>
+                <option value="success" {% if current_filter=='success' %}selected{% endif %}>Thành công</option>
             </select>
         </div>
 
         <!-- Notifications List -->
         {% if notifications and notifications|length > 0 %}
-            <div class="notifications-list">
-                {% for notif in notifications %}
-                    <div class="notification-card {% if not notif.da_doc %}unread{% endif %}" data-notification-id="{{ notif.id }}">
-                        <div class="notification-badge 
+        <div class="notifications-list">
+            {% for notif in notifications %}
+            <div class="notification-card {% if not notif.da_doc %}unread{% endif %}"
+                data-notification-id="{{ notif.id }}">
+                <div class="notification-badge 
                             {% if notif.loai.name == 'info' %}badge-info
                             {% elif notif.loai.name == 'warning' %}badge-warning
                             {% elif notif.loai.name == 'error' %}badge-error
                             {% elif notif.loai.name == 'success' %}badge-success
                             {% endif %}">
-                            {% if notif.loai.name == 'info' %}ℹ️
-                            {% elif notif.loai.name == 'warning' %}⚠️
-                            {% elif notif.loai.name == 'error' %}❌
-                            {% elif notif.loai.name == 'success' %}✅
-                            {% endif %}
-                        </div>
-                        
-                        <div class="notification-content">
-                            <div class="notification-header">
-                                <div>
-                                    <h3 class="notification-title">{{ notif.tieu_de }}</h3>
-                                    <p class="notification-body">{{ notif.noi_dung }}</p>
-                                    <span class="notification-type-tag 
+                    {% if notif.loai.name == 'info' %}<i class="fas fa-info-circle"></i>
+                    {% elif notif.loai.name == 'warning' %}<i class="fas fa-exclamation-triangle"></i>
+                    {% elif notif.loai.name == 'error' %}<i class="fas fa-times-circle"></i>
+                    {% elif notif.loai.name == 'success' %}<i class="fas fa-check-circle"></i>
+                    {% endif %}
+                </div>
+
+                <div class="notification-content">
+                    <div class="notification-header">
+                        <div>
+                            <h3 class="notification-title">{{ notif.tieu_de }}</h3>
+                            <p class="notification-body">{{ notif.noi_dung }}</p>
+                            <span class="notification-type-tag 
                                         {% if notif.loai.name == 'info' %}type-info
                                         {% elif notif.loai.name == 'warning' %}type-warning
                                         {% elif notif.loai.name == 'error' %}type-error
                                         {% elif notif.loai.name == 'success' %}type-success
                                         {% endif %}">
-                                        {{ notif.loai.value }}
-                                    </span>
-                                </div>
-                                <span class="notification-time">
-                                    {{ notif.ngay_tao.strftime('%d/%m/%Y %H:%M') }}
-                                </span>
-                            </div>
+                                {{ notif.loai.value }}
+                            </span>
                         </div>
-
-                        <!-- Added read/unread toggle button -->
-                        <div class="notification-actions">
-                            <button class="btn-read-toggle {% if notif.da_doc %}read{% endif %}" 
-                                    data-notification-id="{{ notif.id }}"
-                                    onclick="toggleNotificationRead(event)"
-                                    title="{% if notif.da_doc %}Đánh dấu chưa đọc{% else %}Đánh dấu đã đọc{% endif %}">
-                                {% if notif.da_doc %}
-                                    ✓ Đã đọc
-                                {% else %}
-                                    ◯ Chưa đọc
-                                {% endif %}
-                            </button>
-                        </div>
+                        <span class="notification-time">
+                            {{ notif.ngay_tao.strftime('%d/%m/%Y %H:%M') }}
+                        </span>
                     </div>
-                {% endfor %}
-            </div>
-
-            <!-- Pagination -->
-            {% if pagination.pages > 1 %}
-                <div class="pagination">
-                    {% if pagination.has_prev %}
-                        <a href="{{ url_for('pharmacist.all_notifications', page=pagination.prev_num, filter_loai=current_filter or '', search_query=search_query or '') }}">← Trước</a>
-                    {% endif %}
-
-                    {% for page_num in pagination.iter_pages() %}
-                        {% if page_num %}
-                            {% if page_num == pagination.page %}
-                                <span class="current">{{ page_num }}</span>
-                            {% else %}
-                                <a href="{{ url_for('pharmacist.all_notifications', page=page_num, filter_loai=current_filter or '', search_query=search_query or '') }}">{{ page_num }}</a>
-                            {% endif %}
-                        {% else %}
-                            <span>...</span>
-                        {% endif %}
-                    {% endfor %}
-
-                    {% if pagination.has_next %}
-                        <a href="{{ url_for('pharmacist.all_notifications', page=pagination.next_num, filter_loai=current_filter or '', search_query=search_query or '') }}">Tiếp →</a>
-                    {% endif %}
                 </div>
-            {% endif %}
-        {% else %}
-            <div class="empty-state">
-                <div class="empty-icon">📭</div>
-                <h3 class="empty-title">Không có thông báo</h3>
-                <p class="empty-message">Bạn không có thông báo nào. Quay lại sau để kiểm tra!</p>
+
+                <!-- Added read/unread toggle button + view detail -->
+                <div class="notification-actions">
+                    <button class="btn btn-sm btn-primary"
+                        onclick="showNotificationDetail('{{ notif.tieu_de }}', `{{ notif.noi_dung | replace('\n', '<br>') }}`, '{{ notif.ngay_tao.strftime('%d/%m/%Y %H:%M') }}', '{{ notif.loai.name }}')"
+                        title="Xem chi tiết">
+                        <i class="fas fa-eye"></i> Chi tiết
+                    </button>
+                    <button class="btn-read-toggle {% if notif.da_doc %}read{% endif %}"
+                        data-notification-id="{{ notif.id }}" onclick="toggleNotificationRead(event)"
+                        title="{% if notif.da_doc %}Đánh dấu chưa đọc{% else %}Đánh dấu đã đọc{% endif %}">
+                        {% if notif.da_doc %}
+                        <i class="fas fa-check"></i> Đã đọc
+                        {% else %}
+                        <i class="fas fa-circle"></i> Chưa đọc
+                        {% endif %}
+                    </button>
+                </div>
             </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if pagination.pages > 1 %}
+        <div class="pagination">
+            {% if pagination.has_prev %}
+            <a
+                href="{{ url_for('pharmacist.all_notifications', page=pagination.prev_num, filter_loai=current_filter or '', search_query=search_query or '') }}">←
+                Trước</a>
+            {% endif %}
+
+            {% for page_num in pagination.iter_pages() %}
+            {% if page_num %}
+            {% if page_num == pagination.page %}
+            <span class="current">{{ page_num }}</span>
+            {% else %}
+            <a
+                href="{{ url_for('pharmacist.all_notifications', page=page_num, filter_loai=current_filter or '', search_query=search_query or '') }}">{{
+                page_num }}</a>
+            {% endif %}
+            {% else %}
+            <span>...</span>
+            {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+            <a
+                href="{{ url_for('pharmacist.all_notifications', page=pagination.next_num, filter_loai=current_filter or '', search_query=search_query or '') }}">Tiếp
+                →</a>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon"><i class="fas fa-inbox"></i></div>
+            <h3 class="empty-title">Không có thông báo</h3>
+            <p class="empty-message">Bạn không có thông báo nào. Quay lại sau để kiểm tra!</p>
+        </div>
         {% endif %}
     </div>
 
@@ -606,11 +616,11 @@
         async function toggleNotificationRead(event) {
             event.preventDefault();
             event.stopPropagation();
-            
+
             const button = event.target;
             const notificationId = button.getAttribute('data-notification-id');
             const card = button.closest('.notification-card');
-            
+
             try {
                 const response = await fetch(`/pharmacist/notifications/${notificationId}/toggle-read`, {
                     method: 'POST',
@@ -622,16 +632,16 @@
 
                 if (response.ok) {
                     const data = await response.json();
-                    
+
                     // Update UI based on response
                     if (data.da_doc) {
                         card.classList.remove('unread');
-                        button.textContent = '✓ Đã đọc';
+                        button.innerHTML = '<i class="fas fa-check"></i> Đã đọc';
                         button.classList.add('read');
                         button.title = 'Đánh dấu chưa đọc';
                     } else {
                         card.classList.add('unread');
-                        button.textContent = '◯ Chưa đọc';
+                        button.innerHTML = '<i class="fas fa-circle"></i> Chưa đọc';
                         button.classList.remove('read');
                         button.title = 'Đánh dấu đã đọc';
                     }
@@ -646,7 +656,70 @@
                 alert('Lỗi khi cập nhật thông báo');
             }
         }
+
+        function showNotificationDetail(title, content, time, type) {
+            const typeLabels = {
+                'info': '<i class="fas fa-info-circle"></i> Thông tin',
+                'warning': '<i class="fas fa-exclamation-triangle"></i> Cảnh báo',
+                'error': '<i class="fas fa-times-circle"></i> Lỗi',
+                'success': '<i class="fas fa-check-circle"></i> Thành công'
+            };
+            const typeColors = {
+                'info': '#06B6D4',
+                'warning': '#F59E0B',
+                'error': '#EF4444',
+                'success': '#10B981'
+            };
+
+            // Create modal if not exists
+            let modal = document.getElementById('notificationDetailModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'notificationDetailModal';
+                modal.innerHTML = `
+                    <div class="modal-overlay" onclick="closeNotificationModal()"></div>
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3 id="modalTitle"></h3>
+                            <button onclick="closeNotificationModal()" class="modal-close">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="modalMeta" style="margin-bottom: 1rem; font-size: 0.9rem; color: #6B7280;"></div>
+                            <div id="modalContent" style="line-height: 1.8;"></div>
+                        </div>
+                    </div>
+                `;
+                modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;display:none;';
+                modal.querySelector('.modal-overlay').style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);';
+                modal.querySelector('.modal-content').style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:12px;padding:0;width:90%;max-width:600px;max-height:80vh;overflow:auto;box-shadow:0 20px 40px rgba(0,0,0,0.2);';
+                modal.querySelector('.modal-header').style.cssText = 'padding:1.25rem 1.5rem;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;';
+                modal.querySelector('.modal-header h3').style.cssText = 'margin:0;font-size:1.25rem;color:#1F2937;';
+                modal.querySelector('.modal-close').style.cssText = 'background:none;border:none;font-size:1.5rem;color:#6B7280;cursor:pointer;padding:0;line-height:1;';
+                modal.querySelector('.modal-body').style.cssText = 'padding:1.5rem;';
+                document.body.appendChild(modal);
+            }
+
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMeta').innerHTML = `<span style="background:${typeColors[type] || '#3074E6'};color:white;padding:0.25rem 0.75rem;border-radius:9999px;font-size:0.8rem;font-weight:600;">${typeLabels[type] || type}</span> &nbsp; <i class="far fa-calendar-alt"></i> ${time}`;
+            document.getElementById('modalContent').innerHTML = content;
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeNotificationModal() {
+            const modal = document.getElementById('notificationDetailModal');
+            if (modal) {
+                modal.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        }
+
+        // Close modal on ESC key
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeNotificationModal();
+        });
     </script>
 </body>
+
 </html>
 {% endblock %}

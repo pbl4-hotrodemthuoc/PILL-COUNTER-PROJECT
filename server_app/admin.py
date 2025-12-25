@@ -109,7 +109,7 @@
 from flask import Blueprint, render_template, flash, redirect, url_for, request
 from flask_login import login_required, current_user
 from functools import wraps
-from .models import db, NguoiDung, LoaiThuoc, VaiTroEnum, BaoCaoSuCo, TrangThaiSuCoEnum, ThietBi, TrangThaiThietBiEnum, DonThuoc
+from .models import db, NguoiDung, LoaiThuoc, VaiTroEnum, BaoCaoSuCo, TrangThaiSuCoEnum, ThietBi, TrangThaiThietBiEnum, DonThuoc, ThongBao, LoaiThongBaoEnum
 from werkzeug.security import generate_password_hash
 from datetime import date, timedelta, datetime
 from sqlalchemy import func
@@ -141,8 +141,15 @@ def inject_admin_data():
     """Cung cấp các biến chung cho giao diện của Admin."""
     if current_user.is_authenticated and current_user.vai_tro == VaiTroEnum.admin:
         pending_incidents_count = BaoCaoSuCo.query.filter_by(trang_thai=TrangThaiSuCoEnum.pending).count()
+        # Đếm thông báo chưa đọc
+        unread_notifications_count = ThongBao.query.filter_by(id_nguoi_dung=current_user.id, da_doc=False).count()
+        # Lấy 5 thông báo mới nhất
+        recent_notifications = ThongBao.query.filter_by(id_nguoi_dung=current_user.id, da_doc=False)\
+            .order_by(ThongBao.ngay_tao.desc()).limit(5).all()
         return dict(
-            pending_incidents_count=pending_incidents_count
+            pending_incidents_count=pending_incidents_count,
+            unread_notifications_count=unread_notifications_count,
+            recent_notifications=recent_notifications
         )
     return {}
 
@@ -192,14 +199,15 @@ def dashboard():
         chart_data[activity.hour] = activity.order_count
 
     # Bảng "Hiệu suất dược sĩ hôm nay"
+    # Bảng "Hiệu suất dược sĩ hôm nay"
     pharmacist_performance_today = db.session.query(
         NguoiDung.ho_ten,
         func.count(DonThuoc.id).label('total_orders'),
-        NguoiDung.ty_le_chinh_xac
+        func.sum(DonThuoc.tong_vien_dem_duoc).label('total_pills_counted')
     ).join(DonThuoc, NguoiDung.id == DonThuoc.id_duoc_si)\
      .filter(DonThuoc.thoi_gian_tao_don.between(today_start, today_end))\
      .filter(NguoiDung.vai_tro == VaiTroEnum.pharmacist)\
-     .group_by(NguoiDung.id, NguoiDung.ho_ten, NguoiDung.ty_le_chinh_xac)\
+     .group_by(NguoiDung.id, NguoiDung.ho_ten)\
      .order_by(func.count(DonThuoc.id).desc())\
      .all()
 
@@ -432,12 +440,26 @@ def delete_drug(drug_id):
     return redirect(url_for('admin.drugs'))
 
 # --- Các route placeholder để tránh lỗi BuildError ---
-@admin.route('/devices')
+@admin.route('/devices', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def devices():
     """Hiển thị trang thông tin chi tiết của thiết bị đếm thuốc."""
     device = ThietBi.query.get_or_404(1)
+    
+    if request.method == 'POST':
+        # Cập nhật thông tin thiết bị
+        new_ip = request.form.get('dia_chi_ip', '').strip()
+        new_name = request.form.get('ten_thiet_bi', '').strip()
+        
+        if new_ip:
+            device.dia_chi_ip = new_ip
+        if new_name:
+            device.ten_thiet_bi = new_name
+            
+        db.session.commit()
+        flash('Đã cập nhật thông tin thiết bị!', 'success')
+        return redirect(url_for('admin.devices'))
     
     # Đếm số đơn thật từ database
     total_orders = DonThuoc.query.filter_by(trang_thai_don='completed').count()
@@ -483,12 +505,12 @@ def get_report_data(time_range, start_date_str, end_date_str):
     pharmacist_performance = db.session.query(
         NguoiDung.ho_ten,
         func.count(DonThuoc.id).label('total_prescriptions'),
-        func.avg(DonThuoc.thoi_gian_xu_ly_giay).label('avg_time'),
-        NguoiDung.ty_le_chinh_xac
+        func.avg(DonThuoc.thoi_gian_xu_ly_ms).label('avg_time'),
+        func.sum(DonThuoc.tong_vien_dem_duoc).label('total_pills_counted')
     ).join(DonThuoc, NguoiDung.id == DonThuoc.id_duoc_si)\
      .filter(DonThuoc.thoi_gian_tao_don.between(start_datetime, end_datetime))\
      .filter(NguoiDung.vai_tro == VaiTroEnum.pharmacist)\
-     .group_by(NguoiDung.id)\
+     .group_by(NguoiDung.id, NguoiDung.ho_ten)\
      .order_by(func.count(DonThuoc.id).desc())\
      .all()
 
@@ -652,6 +674,19 @@ def incident_detail(incident_id):
         incident.ngay_xu_ly = datetime.utcnow()
         
         db.session.commit()
+        
+        # ✅ GỬI THÔNG BÁO CHO DƯỢC SĨ ĐÃ BÁO CÁO
+        from .utils import create_notification
+        if incident.trang_thai in [TrangThaiSuCoEnum.resolved, TrangThaiSuCoEnum.rejected]:
+            status_text = "đã được giải quyết" if incident.trang_thai == TrangThaiSuCoEnum.resolved else "đã bị từ chối"
+            notif_type = LoaiThongBaoEnum.success if incident.trang_thai == TrangThaiSuCoEnum.resolved else LoaiThongBaoEnum.warning
+            create_notification(
+                user_id=incident.id_nguoi_bao_cao,
+                title=f"Sự cố của bạn {status_text}",
+                content=f"Phản hồi từ Admin: {admin_response[:100]}{'...' if admin_response and len(admin_response) > 100 else ''}" if admin_response else "Không có phản hồi.",
+                notif_type=notif_type
+            )
+        
         flash('Đã cập nhật sự cố thành công!', 'success')
         return redirect(url_for('admin.incidents', status=incident.trang_thai.name))
 
@@ -733,3 +768,172 @@ def profile():
     return redirect(url_for('main.profile')) # Dùng chung trang profile
 
 # --- Các route cho Quick Actions ---
+
+# --- THÔNG BÁO (Notifications) ---
+@admin.route('/notifications')
+@login_required
+@admin_required
+def all_notifications():
+    """Hiển thị tất cả thông báo của admin."""
+    page = request.args.get('page', 1, type=int)
+    search_query = request.args.get('search_query', '').strip()
+    filter_loai = request.args.get('filter_loai', '')
+    
+    query = ThongBao.query.filter_by(id_nguoi_dung=current_user.id).order_by(ThongBao.ngay_tao.desc())
+    
+    if search_query:
+        query = query.filter(ThongBao.noi_dung.ilike(f'%{search_query}%'))
+    
+    if filter_loai:
+        try:
+            loai_enum = LoaiThongBaoEnum[filter_loai]
+            query = query.filter(ThongBao.loai == loai_enum)
+        except KeyError:
+            pass
+    
+    pagination = query.paginate(page=page, per_page=15, error_out=False)
+    
+    return render_template('admin/notifications.html',
+                           notifications=pagination.items,
+                           pagination=pagination,
+                           search_query=search_query,
+                           current_filter=filter_loai)
+
+
+@admin.route('/notifications/history')
+@login_required
+@admin_required
+def notification_history():
+    """Xem lịch sử thông báo - có thể lọc 'của tôi' hoặc 'toàn hệ thống'."""
+    page = request.args.get('page', 1, type=int)
+    search_query = request.args.get('search', '').strip()
+    filter_loai = request.args.get('loai', '')
+    filter_user = request.args.get('user_id', 0, type=int)
+    mine_only = request.args.get('mine', '') == '1'
+    
+    query = ThongBao.query.order_by(ThongBao.ngay_tao.desc())
+    
+    # Filter "Chỉ của tôi"
+    if mine_only:
+        query = query.filter(ThongBao.id_nguoi_dung == current_user.id)
+    elif filter_user:
+        query = query.filter(ThongBao.id_nguoi_dung == filter_user)
+    
+    if search_query:
+        query = query.filter(
+            (ThongBao.tieu_de.ilike(f'%{search_query}%')) |
+            (ThongBao.noi_dung.ilike(f'%{search_query}%'))
+        )
+    
+    if filter_loai:
+        try:
+            loai_enum = LoaiThongBaoEnum[filter_loai]
+            query = query.filter(ThongBao.loai == loai_enum)
+        except KeyError:
+            pass
+    
+    pagination = query.paginate(page=page, per_page=20, error_out=False)
+    all_users = NguoiDung.query.filter_by(dang_hoat_dong=True).order_by(NguoiDung.ho_ten).all()
+    
+    # Đếm unread của admin hiện tại
+    unread_count = ThongBao.query.filter_by(id_nguoi_dung=current_user.id, da_doc=False).count()
+    
+    return render_template('admin/notification_history.html',
+                           notifications=pagination.items,
+                           pagination=pagination,
+                           search_query=search_query,
+                           current_filter=filter_loai,
+                           current_user_filter=filter_user,
+                           mine_only=mine_only,
+                           unread_count=unread_count,
+                           all_users=all_users)
+
+
+@admin.route('/notifications/mark-all-read', methods=['POST'])
+@login_required
+@admin_required
+def mark_all_read():
+    """Đánh dấu tất cả thông báo đã đọc."""
+    ThongBao.query.filter_by(id_nguoi_dung=current_user.id, da_doc=False).update({'da_doc': True, 'thoi_gian_doc': datetime.utcnow()})
+    db.session.commit()
+    flash('Đã đánh dấu tất cả thông báo đã đọc.', 'success')
+    return redirect(url_for('admin.notification_history', mine='1'))
+
+
+@admin.route('/notifications/<int:id>/toggle-read', methods=['POST'])
+@login_required
+@admin_required
+def toggle_read(id):
+    """Toggle trạng thái đọc của một thông báo."""
+    notif = ThongBao.query.get_or_404(id)
+    
+    if notif.id_nguoi_dung != current_user.id:
+        return {'error': 'Unauthorized'}, 403
+    
+    notif.da_doc = not notif.da_doc
+    if notif.da_doc:
+        notif.thoi_gian_doc = datetime.utcnow()
+    else:
+        notif.thoi_gian_doc = None
+    
+    db.session.commit()
+    return {'da_doc': notif.da_doc}, 200
+
+
+# --- GỬI THÔNG BÁO (Admin tạo thông báo) ---
+@admin.route('/notifications/send', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def send_notification():
+    """Trang gửi thông báo cho người dùng."""
+    from .utils import create_notification
+    
+    all_users = NguoiDung.query.filter_by(dang_hoat_dong=True).order_by(NguoiDung.ho_ten).all()
+    
+    if request.method == 'POST':
+        loai_str = request.form.get('loai', 'info')
+        tieu_de = request.form.get('tieu_de', '').strip()
+        noi_dung = request.form.get('noi_dung', '').strip()
+        target_type = request.form.get('target_type', 'all')
+        target_users = request.form.getlist('target_users[]')
+        
+        if not tieu_de or not noi_dung:
+            flash('Vui lòng nhập đầy đủ tiêu đề và nội dung!', 'danger')
+            return redirect(url_for('admin.send_notification'))
+        
+        # Xác định loại thông báo
+        try:
+            loai_enum = LoaiThongBaoEnum[loai_str]
+        except KeyError:
+            loai_enum = LoaiThongBaoEnum.info
+        
+        # Xác định danh sách người nhận (chỉ dược sĩ)
+        recipients = []
+        if target_type == 'pharmacists':
+            recipients = [u for u in all_users if u.vai_tro == VaiTroEnum.pharmacist]
+        elif target_type == 'select' and target_users:
+            user_ids = [int(uid) for uid in target_users]
+            recipients = NguoiDung.query.filter(NguoiDung.id.in_(user_ids), NguoiDung.vai_tro == VaiTroEnum.pharmacist).all()
+        
+        # Gửi thông báo
+        count = 0
+        for user in recipients:
+            create_notification(
+                user_id=user.id,
+                title=tieu_de,
+                content=noi_dung,
+                notif_type=loai_enum
+            )
+            count += 1
+        
+        flash(f'Đã gửi thông báo thành công cho {count} người!', 'success')
+        return redirect(url_for('admin.send_notification'))
+    
+    # GET request
+    total_sent = ThongBao.query.count()
+    recent_sent = ThongBao.query.order_by(ThongBao.ngay_tao.desc()).limit(10).all()
+    
+    return render_template('admin/send_notification.html',
+                           all_users=all_users,
+                           total_sent=total_sent,
+                           recent_sent=recent_sent)

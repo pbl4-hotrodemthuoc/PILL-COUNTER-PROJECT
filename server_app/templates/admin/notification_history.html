@@ -1,0 +1,207 @@
+{% extends "admin/layout.html" %}
+
+{% block title %}Thông Báo{% endblock %}
+{% block page_title %}Quản Lý Thông Báo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h5 class="mb-1">{% if mine_only %}Thông báo của tôi{% else %}Tất cả thông báo{% endif %}</h5>
+            <p class="text-muted mb-0 small">
+                {% if mine_only %}Bạn có {{ unread_count }} thông báo chưa đọc{% else %}Xem lịch sử thông báo toàn hệ
+                thống{% endif %}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if mine_only and unread_count > 0 %}
+            <form method="POST" action="{{ url_for('admin.mark_all_read') }}">
+                <button type="submit" class="btn btn-outline-success">
+                    <i class="fa-solid fa-check-double me-1"></i> Đánh dấu tất cả đã đọc
+                </button>
+            </form>
+            {% endif %}
+            <a href="{{ url_for('admin.send_notification') }}" class="btn btn-primary">
+                <i class="fa-solid fa-plus me-1"></i> Gửi mới
+            </a>
+        </div>
+    </div>
+
+    <!-- Toggle + Filters -->
+    <div class="card mb-4">
+        <div class="card-body py-3">
+            <form method="GET" class="row g-3 align-items-end">
+                <!-- Toggle Của tôi / Tất cả -->
+                <div class="col-md-3">
+                    <div class="btn-group w-100" role="group">
+                        <a href="{{ url_for('admin.notification_history', mine='1') }}"
+                            class="btn {% if mine_only %}btn-primary{% else %}btn-outline-primary{% endif %}">Của
+                            tôi</a>
+                        <a href="{{ url_for('admin.notification_history') }}"
+                            class="btn {% if not mine_only %}btn-primary{% else %}btn-outline-primary{% endif %}">Tất
+                            cả</a>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <input type="text" name="search" class="form-control" placeholder="Tìm kiếm..."
+                        value="{{ search_query or '' }}">
+                </div>
+                <div class="col-md-2">
+                    <select name="loai" class="form-select">
+                        <option value="">Tất cả loại</option>
+                        <option value="info" {% if current_filter=='info' %}selected{% endif %}>Thông tin</option>
+                        <option value="warning" {% if current_filter=='warning' %}selected{% endif %}>Cảnh báo</option>
+                    </select>
+                </div>
+                {% if not mine_only %}
+                <div class="col-md-2">
+                    <select name="user_id" class="form-select">
+                        <option value="">Tất cả người</option>
+                        {% for user in all_users %}
+                        <option value="{{ user.id }}" {% if current_user_filter==user.id %}selected{% endif %}>{{
+                            user.ho_ten }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div class="col-md-2">
+                    {% if mine_only %}<input type="hidden" name="mine" value="1">{% endif %}
+                    <button type="submit" class="btn btn-secondary w-100">Lọc</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if notifications %}
+    <div class="card">
+        <div class="list-group list-group-flush">
+            {% for notif in notifications %}
+            <div class="list-group-item notif-row" style="cursor: pointer;" data-title="{{ notif.tieu_de }}"
+                data-content="{{ notif.noi_dung }}" data-type="{{ notif.loai.name }}"
+                data-type-label="{{ notif.loai.value }}" data-user="{{ notif.nguoi_dung.ho_ten }}"
+                data-time="{{ notif.ngay_tao.strftime('%H:%M %d/%m/%Y') }}" data-read="{{ notif.da_doc }}"
+                data-id="{{ notif.id }}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="fw-semibold mb-1">{{ notif.tieu_de }}</div>
+                        <p class="mb-1 text-muted small">{{ notif.noi_dung[:80] }}{% if notif.noi_dung|length > 80
+                            %}...{% endif %}</p>
+                        <div class="d-flex gap-2 align-items-center">
+                            <span
+                                class="badge rounded-pill {% if notif.loai.name == 'info' %}bg-primary{% elif notif.loai.name == 'warning' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{
+                                notif.loai.value }}</span>
+                            {% if not mine_only %}<small class="text-muted">→ {{ notif.nguoi_dung.ho_ten }}</small>{%
+                            endif %}
+                        </div>
+                    </div>
+                    <div class="text-end flex-shrink-0">
+                        <small class="text-muted">{{ notif.ngay_tao.strftime('%H:%M %d/%m') }}</small>
+                        <br><span class="badge {% if notif.da_doc %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Đã
+                            đọc' if notif.da_doc else 'Chưa đọc' }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% if pagination.pages > 1 %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if pagination.has_prev %}<li class="page-item"><a class="page-link"
+                    href="{{ url_for('admin.notification_history', page=pagination.prev_num, search=search_query, loai=current_filter, user_id=current_user_filter, mine='1' if mine_only else '') }}">←</a>
+            </li>{% endif %}
+            {% for p in pagination.iter_pages() %}{% if p %}<li
+                class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link"
+                    href="{{ url_for('admin.notification_history', page=p, search=search_query, loai=current_filter, user_id=current_user_filter, mine='1' if mine_only else '') }}">{{
+                    p }}</a></li>{% else %}<li class="page-item disabled"><span class="page-link">...</span></li>{%
+            endif %}{% endfor %}
+            {% if pagination.has_next %}<li class="page-item"><a class="page-link"
+                    href="{{ url_for('admin.notification_history', page=pagination.next_num, search=search_query, loai=current_filter, user_id=current_user_filter, mine='1' if mine_only else '') }}">→</a>
+            </li>{% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-5 text-muted">Không có thông báo nào</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Chi Tiết -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chi tiết thông báo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <span id="mBadge" class="badge rounded-pill"></span>
+                    <span id="mRead" class="ms-2 small text-muted"></span>
+                </div>
+                <h5 id="mTitle" class="fw-bold mb-2"></h5>
+                <p id="mContent" style="white-space: pre-wrap;"></p>
+                <hr>
+                <div class="d-flex justify-content-between small text-muted">
+                    <span><i class="fa-solid fa-user me-1"></i><span id="mUser"></span></span>
+                    <span><i class="fa-solid fa-clock me-1"></i><span id="mTime"></span></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                {% if mine_only %}
+                <button id="btnToggleRead" class="btn btn-outline-success">Đánh dấu đã đọc</button>
+                {% endif %}
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentNotifId = null;
+
+    document.querySelectorAll('.notif-row').forEach(row => {
+        row.addEventListener('click', function () {
+            currentNotifId = this.dataset.id;
+            document.getElementById('mTitle').textContent = this.dataset.title;
+            document.getElementById('mContent').textContent = this.dataset.content;
+            document.getElementById('mUser').textContent = this.dataset.user;
+            document.getElementById('mTime').textContent = this.dataset.time;
+
+            const badge = document.getElementById('mBadge');
+            badge.textContent = this.dataset.typeLabel;
+            badge.className = 'badge rounded-pill ' + (this.dataset.type === 'info' ? 'bg-primary' : this.dataset.type === 'warning' ? 'bg-warning text-dark' : 'bg-secondary');
+
+            const isRead = this.dataset.read === 'True';
+            document.getElementById('mRead').textContent = isRead ? '✓ Đã đọc' : '○ Chưa đọc';
+
+            const btnToggle = document.getElementById('btnToggleRead');
+            if (btnToggle) {
+                btnToggle.textContent = isRead ? 'Đánh dấu chưa đọc' : 'Đánh dấu đã đọc';
+                btnToggle.className = isRead ? 'btn btn-outline-secondary' : 'btn btn-outline-success';
+            }
+
+            new bootstrap.Modal(document.getElementById('detailModal')).show();
+        });
+    });
+
+    // Toggle read status
+    const btnToggle = document.getElementById('btnToggleRead');
+    if (btnToggle) {
+        btnToggle.addEventListener('click', function () {
+            if (!currentNotifId) return;
+            fetch(`/admin/notifications/${currentNotifId}/toggle-read`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.da_doc !== undefined) {
+                        location.reload();
+                    }
+                });
+        });
+    }
+</script>
+{% endblock %}
