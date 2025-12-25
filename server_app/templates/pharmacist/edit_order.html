@@ -12,19 +12,35 @@
 <div class="card shadow-sm">
     <div class="card-body">
         <form method="POST">
-            
+
             <div class="mb-3">
                 <label class="form-label">Tên Bệnh nhân:</label>
                 <input type="text" name="patient_name" class="form-control" value="{{ order.ten_benh_nhan }}">
             </div>
 
-            <!-- Khu vực thêm thuốc (Giống trang tạo mới) -->
+            <!-- Khu vực thêm thuốc (Cải tiến Horizontal) -->
             <div class="mb-4 bg-light p-3 rounded border">
-                <label class="form-label fw-bold">Thêm thuốc mới:</label>
-                <div class="input-group">
-                    <input type="text" id="drugSearchInput" class="form-control" placeholder="Tìm tên thuốc...">
+                <label class="form-label fw-bold">Thêm thuốc nhanh:</label>
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-6 position-relative">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                            <input type="text" id="drugSearchInput" class="form-control border-start-0 ps-0" placeholder="Gõ tên thuốc..." autocomplete="off">
+                        </div>
+                        <input type="hidden" id="selectedDrugId">
+                        <div id="searchResults" class="list-group shadow-sm"
+                            style="position:absolute; top: 100%; left:0; width: 100%; z-index:1050; display:none; max-height: 200px; overflow-y: auto;">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="number" id="drugQuantity" class="form-control text-center fw-bold"
+                            placeholder="Số lượng" min="1" disabled>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="button" id="btnAddDrug" class="btn btn-success w-100" disabled><i
+                                class="bi bi-plus-lg"></i> Thêm</button>
+                    </div>
                 </div>
-                <div id="searchResults" class="list-group mt-2 shadow" style="position:absolute; z-index:1000; width: 50%; display:none;"></div>
             </div>
 
             <table class="table table-bordered align-middle">
@@ -44,10 +60,12 @@
                             <input type="hidden" name="drug_ids[]" value="{{ item.id_loai_thuoc }}">
                         </td>
                         <td>
-                            <input type="number" name="quantities[]" class="form-control text-center fw-bold" value="{{ item.so_luong_yeu_cau }}" min="1" required>
+                            <input type="number" name="quantities[]" class="form-control text-center fw-bold"
+                                value="{{ item.so_luong_yeu_cau }}" min="1" required>
                         </td>
                         <td>
-                            <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button>
+                            <button type="button" class="btn btn-warning btn-sm"
+                                onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -59,63 +77,150 @@
                 <textarea name="note" class="form-control" rows="2">{{ order.ghi_chu_duoc_si }}</textarea>
             </div>
 
-            <div class="d-grid">
-                <button type="submit" class="btn btn-warning btn-lg text-white">Cập Nhật Thay Đổi</button>
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary btn-lg">Lưu Cập Nhật</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- SCRIPT JS (Copy lại phần search thuốc từ new_order.html sang đây) -->
 <script>
-    // ... (Copy đoạn script JS xử lý tìm kiếm và thêm dòng từ new_order.html) ...
-    // Chỉ cần copy hàm addDrugToTable và event listener của searchInput
-    
     const searchInput = document.getElementById('drugSearchInput');
     const resultsBox = document.getElementById('searchResults');
+    const drugIdInput = document.getElementById('selectedDrugId');
+    const quantityInput = document.getElementById('drugQuantity');
+    const btnAdd = document.getElementById('btnAddDrug');
     const tableBody = document.getElementById('drugListBody');
 
-    searchInput.addEventListener('input', async function() {
-        // ... logic tìm kiếm y hệt ...
+    // 1. Logic tìm kiếm (Debounce + Focus)
+    let debounceTimer;
+
+    // Hàm thực hiện tìm kiếm
+    async function performSearch(query) {
+        try {
+            // Cho phép tìm kiếm rỗng (lấy toàn bộ/mặc định)
+            const response = await fetch(`/pharmacist/api/search-drugs?q=${query}`);
+            const drugs = await response.json();
+            
+            resultsBox.innerHTML = '';
+                if (drugs.length > 0) {
+                    resultsBox.style.display = 'block';
+                    drugs.forEach(drug => {
+                        const item = document.createElement('button');
+                        item.type = 'button';
+                        item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center p-2';
+                        
+                        // Hien thi ten + ma + ton kho
+                        item.innerHTML = `
+                            <div>
+                                <div class="fw-bold">${drug.name}</div>
+                                <small class="text-muted"><i class="fa-solid fa-barcode me-1"></i>${drug.code}</small>
+                            </div>
+                            <div class="text-end">
+                                <small class="d-block text-muted">Tồn kho</small>
+                                <span class="badge bg-light text-dark border">
+                                    <i class="fa-solid fa-boxes-stacked me-1"></i>${drug.stock} ${drug.unit}
+                                </span>
+                            </div>
+                        `;
+                        
+                        item.onclick = () => {
+                            selectDrug(drug);
+                        };
+                        resultsBox.appendChild(item);
+                    });
+                } else {
+                resultsBox.style.display = 'none';
+            }
+        } catch (err) {
+            console.error('Search error:', err);
+        }
+    }
+
+    // Sự kiện gõ phím
+    searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
         const query = this.value.trim();
-        if (query.length < 2) { resultsBox.style.display = 'none'; return; }
-        
-        const response = await fetch(`/pharmacist/api/search-drugs?q=${query}`);
-        const drugs = await response.json();
-        
-        resultsBox.innerHTML = '';
-        if (drugs.length > 0) {
-            resultsBox.style.display = 'block';
-            drugs.forEach(drug => {
-                const item = document.createElement('button');
-                item.type = 'button';
-                item.className = 'list-group-item list-group-item-action';
-                item.textContent = drug.text;
-                item.onclick = () => {
-                    addDrugToTable(drug);
-                    resultsBox.style.display = 'none';
-                    searchInput.value = '';
-                };
-                resultsBox.appendChild(item);
-            });
+        debounceTimer = setTimeout(() => performSearch(query), 300);
+    });
+
+    // Sự kiện focus: Hiển thị danh sách ngay
+    searchInput.addEventListener('focus', function() {
+        if (resultsBox.style.display === 'none') {
+            performSearch(this.value.trim());
         }
     });
 
-    function addDrugToTable(drug) {
+    // 2. Chọn thuốc
+    function selectDrug(drug) {
+        searchInput.value = drug.name; // Đảm bảo dùng .name
+        drugIdInput.value = drug.id;
+        resultsBox.style.display = 'none';
+        
+        // Enable quantity & Focus
+        quantityInput.disabled = false;
+        btnAdd.disabled = false;
+        quantityInput.focus();
+        quantityInput.value = ''; 
+    }
+
+    // 3. Reset chọn
+    function resetSelection() {
+        drugIdInput.value = '';
+        quantityInput.value = '';
+        quantityInput.disabled = true;
+        btnAdd.disabled = true;
+    }
+
+    // 4. Thêm vào bảng
+    function addDrugToTable() {
+        const id = drugIdInput.value;
+        const name = searchInput.value;
+        const qty = parseInt(quantityInput.value);
+
+        if (!id || !qty || qty <= 0) {
+            alert("Vui lòng nhập số lượng hợp lệ!");
+            quantityInput.focus();
+            return;
+        }
+
+        // Tạo dòng mới
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>
-                ${drug.text}
-                <input type="hidden" name="drug_ids[]" value="${drug.id}">
+                ${name}
+                <input type="hidden" name="drug_ids[]" value="${id}">
             </td>
             <td>
-                <input type="number" name="quantities[]" class="form-control text-center fw-bold" value="10" min="1" required>
+                <input type="number" name="quantities[]" class="form-control text-center fw-bold" value="${qty}" min="1" required>
             </td>
             <td>
-                <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button>
+                <button type="button" class="btn btn-warning btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button>
             </td>
         `;
         tableBody.appendChild(row);
+
+        // Reset để nhập tiếp
+        searchInput.value = '';
+        resetSelection();
+        searchInput.focus();
     }
+
+    btnAdd.addEventListener('click', addDrugToTable);
+
+    // Hỗ trợ Enter ở ô quantity
+    quantityInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // Chặn submit form
+            addDrugToTable();
+        }
+    });
+
+    // Ẩn dropdown khi click ra ngoài
+    document.addEventListener('click', function (e) {
+        if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+            resultsBox.style.display = 'none';
+        }
+    });
 </script>
 {% endblock %}
