@@ -56,6 +56,7 @@ class TrangThaiKhopChiTietEnum(enum.Enum):
 class LoaiSuCoEnum(enum.Enum):
     drug_defect = 'Lỗi thuốc'
     device_error = 'Lỗi thiết bị'
+    ai_error = 'Lỗi AI nhận diện'
     other = 'Khác'
 
 class TrangThaiSuCoEnum(enum.Enum):
@@ -143,7 +144,7 @@ class DonThuoc(db.Model):
     ma_don_thuoc = db.Column(db.String(50), unique=True, nullable=False)
     id_duoc_si = db.Column(db.Integer, db.ForeignKey('nguoi_dung.id'), nullable=False)
     id_thiet_bi = db.Column(db.Integer, db.ForeignKey('thiet_bi.id'), nullable=True, default=1)
-    thoi_gian_tao_don = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    thoi_gian_tao_don = db.Column(db.DateTime, nullable=False, default=datetime.datetime.now)
     ten_benh_nhan = db.Column(db.String(100), nullable=True)
     thoi_gian_bat_dau = db.Column(db.DateTime, nullable=True)
     thoi_gian_ket_thuc = db.Column(db.DateTime, nullable=True)

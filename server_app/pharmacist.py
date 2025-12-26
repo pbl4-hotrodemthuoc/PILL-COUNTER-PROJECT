@@ -1241,12 +1241,9 @@ def get_order_details_full(order_id):
                 'chenh_lech': d.chenh_lech or 0
             })
 
-        # Chuyển thời gian sang giờ Việt Nam (UTC+7)
-        from datetime import timedelta
-        vn_offset = timedelta(hours=7)
-        
-        created_time = order.thoi_gian_tao_don + vn_offset
-        completed_time = (order.thoi_gian_ket_thuc + vn_offset) if order.thoi_gian_ket_thuc else None
+        # Không cần cộng thêm 7h vì đã lưu giờ VN trong DB
+        created_time = order.thoi_gian_tao_don
+        completed_time = order.thoi_gian_ket_thuc
         
         # Format thời gian xử lý ms -> m:ss:ms
         processing_time_str = 'N/A'
@@ -1260,7 +1257,7 @@ def get_order_details_full(order_id):
         return jsonify({
             'ma_don_thuoc': order.ma_don_thuoc,
             'duoc_si_xu_ly': order.duoc_si.ho_ten,
-            'thoi_gian_tao_don': created_time.strftime('%H:%M %d/%m/%Y'),
+            'thoi_gian_tao_don': created_time.strftime('%H:%M %d/%m/%Y') if created_time else 'N/A',
             'thoi_gian_ket_thuc': completed_time.strftime('%H:%M %d/%m/%Y') if completed_time else 'N/A',
             'thoi_gian_xu_ly': processing_time_str,
             'tong_vien_yeu_cau': order.tong_vien_yeu_cau,
@@ -1548,21 +1545,52 @@ def edit_order(order_id):
         quantities = request.form.getlist('quantities[]')
         
         if drug_ids and quantities:
-            # Xóa các chi tiết cũ
+            # 1. LƯU LẠI SỐ LƯỢNG CŨ (để tính delta kho)
+            old_quantities = {}
+            for detail in order.chi_tiet_don:
+                old_quantities[detail.id_loai_thuoc] = detail.so_luong_yeu_cau
+            
+            # 2. XÓA CHI TIẾT CŨ
             ChiTietDonThuoc.query.filter_by(id_don_thuoc=order.id).delete()
             
-            # Thêm chi tiết mới
+            # 3. THÊM CHI TIẾT MỚI + GỘP TRÙNG
+            new_quantities = {}
+            for drug_id, qty in zip(drug_ids, quantities):
+                drug_id = int(drug_id)
+                qty = int(qty)
+                if drug_id in new_quantities:
+                    new_quantities[drug_id] += qty
+                else:
+                    new_quantities[drug_id] = qty
+            
             total_types = 0
             total_required = 0
-            for drug_id, qty in zip(drug_ids, quantities):
+            for drug_id, qty in new_quantities.items():
                 detail = ChiTietDonThuoc(
                     id_don_thuoc=order.id,
-                    id_loai_thuoc=int(drug_id),
-                    so_luong_yeu_cau=int(qty)
+                    id_loai_thuoc=drug_id,
+                    so_luong_yeu_cau=qty
                 )
                 db.session.add(detail)
                 total_types += 1
-                total_required += int(qty)
+                total_required += qty
+                
+                # 4. CẬP NHẬT KHO (DELTA = SỐ LƯỢNG CŨ - SỐ LƯỢNG MỚI)
+                # Nếu tăng số lượng -> trừ kho
+                # Nếu giảm số lượng -> cộng lại kho
+                old_qty = old_quantities.get(drug_id, 0)
+                delta = old_qty - qty  # Dương = hoàn kho, Âm = trừ kho
+                
+                drug = LoaiThuoc.query.get(drug_id)
+                if drug:
+                    drug.ton_kho_uoc_tinh = (drug.ton_kho_uoc_tinh or 0) + delta
+            
+            # 5. HOÀN KHO CHO THUỐC BỊ XÓA KHỎI ĐƠN
+            for drug_id, old_qty in old_quantities.items():
+                if drug_id not in new_quantities:
+                    drug = LoaiThuoc.query.get(drug_id)
+                    if drug:
+                        drug.ton_kho_uoc_tinh = (drug.ton_kho_uoc_tinh or 0) + old_qty
             
             # Cập nhật tổng
             order.tong_so_loai_thuoc = total_types

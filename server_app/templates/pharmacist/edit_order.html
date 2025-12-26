@@ -172,7 +172,7 @@
         btnAdd.disabled = true;
     }
 
-    // 4. Thêm vào bảng
+    // 4. Thêm vào bảng (CẢI TIẾN: CỘNG DỒN NẾU TRÙNG)
     function addDrugToTable() {
         const id = drugIdInput.value;
         const name = searchInput.value;
@@ -184,21 +184,36 @@
             return;
         }
 
-        // Tạo dòng mới
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>
-                ${name}
-                <input type="hidden" name="drug_ids[]" value="${id}">
-            </td>
-            <td>
-                <input type="number" name="quantities[]" class="form-control text-center fw-bold" value="${qty}" min="1" required>
-            </td>
-            <td>
-                <button type="button" class="btn btn-warning btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button>
-            </td>
-        `;
-        tableBody.appendChild(row);
+        // KIỂM TRA TRÙNG: Tìm xem thuốc này đã có trong bảng chưa
+        const existingRow = tableBody.querySelector(`input[name="drug_ids[]"][value="${id}"]`);
+        
+        if (existingRow) {
+            // CỘNG DỒN: Tìm ô số lượng của dòng đó và cộng thêm
+            const row = existingRow.closest('tr');
+            const qtyInput = row.querySelector('input[name="quantities[]"]');
+            const currentQty = parseInt(qtyInput.value) || 0;
+            qtyInput.value = currentQty + qty;
+            
+            // Hiệu ứng highlight
+            row.style.backgroundColor = '#d4edda';
+            setTimeout(() => { row.style.backgroundColor = ''; }, 1000);
+        } else {
+            // TẠO DÒNG MỚI
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>
+                    ${name}
+                    <input type="hidden" name="drug_ids[]" value="${id}">
+                </td>
+                <td>
+                    <input type="number" name="quantities[]" class="form-control text-center fw-bold" value="${qty}" min="1" required>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-warning btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        }
 
         // Reset để nhập tiếp
         searchInput.value = '';

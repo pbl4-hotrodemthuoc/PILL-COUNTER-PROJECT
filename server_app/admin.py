@@ -671,7 +671,7 @@ def incident_detail(incident_id):
         incident.phan_hoi_admin = admin_response
         
         # Ghi nhận thời gian xử lý
-        incident.ngay_xu_ly = datetime.utcnow()
+        incident.ngay_xu_ly = datetime.now()
         
         db.session.commit()
         
@@ -854,7 +854,7 @@ def notification_history():
 @admin_required
 def mark_all_read():
     """Đánh dấu tất cả thông báo đã đọc."""
-    ThongBao.query.filter_by(id_nguoi_dung=current_user.id, da_doc=False).update({'da_doc': True, 'thoi_gian_doc': datetime.utcnow()})
+    ThongBao.query.filter_by(id_nguoi_dung=current_user.id, da_doc=False).update({'da_doc': True, 'thoi_gian_doc': datetime.now()})
     db.session.commit()
     flash('Đã đánh dấu tất cả thông báo đã đọc.', 'success')
     return redirect(url_for('admin.notification_history', mine='1'))
@@ -872,7 +872,7 @@ def toggle_read(id):
     
     notif.da_doc = not notif.da_doc
     if notif.da_doc:
-        notif.thoi_gian_doc = datetime.utcnow()
+        notif.thoi_gian_doc = datetime.now()
     else:
         notif.thoi_gian_doc = None
     
