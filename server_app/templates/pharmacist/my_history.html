@@ -164,6 +164,7 @@
                             <tr>
                                 <th scope="col" class="text-center" style="width: 50px;">#</th>
                                 <th scope="col">Tên Thuốc</th>
+                                <th scope="col" class="text-center" style="width: 100px;">Hình Ảnh</th>
                                 <th scope="col" class="text-center" style="width: 120px;">Số Lượng</th>
                             </tr>
                         </thead>
@@ -173,6 +174,17 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LIGHTBOX MODAL PHÓNG TO HÌNH -->
+<div class="modal fade" id="imageLightbox" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content bg-transparent border-0">
+            <div class="modal-body p-0 text-center">
+                <img id="lightboxImage" src="" alt="Phóng to" class="img-fluid rounded shadow" style="max-height: 80vh; cursor: zoom-out;" onclick="closeLightbox()">
             </div>
         </div>
     </div>
@@ -253,11 +265,29 @@
                     <tr>
                         <td class="text-center">${index + 1}</td>
                         <td>${item.ten_thuoc}</td>
+                        <td class="text-center">
+                            <img src="${item.url_hinh_anh}" alt="${item.ten_thuoc}" 
+                                 style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 2px solid #eee;"
+                                 onclick="openLightbox('${item.url_hinh_anh}')"
+                                 onerror="this.src='/static/picture/pills/default.png'">
+                        </td>
                         <td class="text-center fw-bold">${item.so_luong_dem_duoc} viên</td>
                     </tr>
                 `;
                     modalOrderDetailsBody.innerHTML += row;
                 });
+
+        // Hàm mở lightbox phóng to ảnh
+        function openLightbox(src) {
+            document.getElementById('lightboxImage').src = src;
+            new bootstrap.Modal(document.getElementById('imageLightbox')).show();
+        }
+        window.openLightbox = openLightbox; // Export to global
+
+        function closeLightbox() {
+            bootstrap.Modal.getInstance(document.getElementById('imageLightbox'))?.hide();
+        }
+        window.closeLightbox = closeLightbox;
 
                 modalLoader.classList.add('d-none');
                 modalContent.classList.remove('d-none');

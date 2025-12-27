@@ -1238,7 +1238,8 @@ def get_order_details_full(order_id):
                 'ten_thuoc': d.loai_thuoc_info.ten_thuoc,
                 'so_luong_yeu_cau': d.so_luong_yeu_cau,
                 'so_luong_dem_duoc': d.so_luong_dem_duoc or 0,
-                'chenh_lech': d.chenh_lech or 0
+                'chenh_lech': d.chenh_lech or 0,
+                'url_hinh_anh': d.url_hinh_anh or d.loai_thuoc_info.url_hinh_anh or '/static/picture/pills/default.png'
             })
 
         # Không cần cộng thêm 7h vì đã lưu giờ VN trong DB
