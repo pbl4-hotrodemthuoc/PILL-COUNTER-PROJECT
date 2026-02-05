@@ -38,14 +38,14 @@
 - ✅ Automatic counting with AI (high accuracy)
 - ✅ Compare actual quantity vs prescription
 - ✅ View prescription history and personal statistics
-- ✅ Report incidents (defective pills, device errors)
+- ✅ Report incidents (defective pills)
 
 ### 🔹 For Administrators
 - 📊 Comprehensive dashboard analytics
 - 👥 User management (pharmacists)
 - 💊 Medication catalog management
 - 📈 Performance reports (AI accuracy, processing time)
-- 🔧 Device management (Raspberry Pi)
+
 
 ### 🔹 AI Technology
 - **YOLOv11** - Real-time pill detection and counting
