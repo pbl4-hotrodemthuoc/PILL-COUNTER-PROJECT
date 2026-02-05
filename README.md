@@ -262,7 +262,7 @@ cp runs/detect/train/weights/best.pt ../device_app/models/best.pt
 PILL_COUNTER_PROJECT/
 ├── 📁 server_app/              # Flask backend
 │   ├── __init__.py
-│   ├── models.py               # Database models (8 tables)
+│   ├── models.py               # Database models (7 tables)
 │   ├── admin.py                # Admin routes
 │   ├── pharmacist.py           # Pharmacist routes + AI logic
 │   ├── auth.py                 # Authentication
@@ -307,18 +307,17 @@ PILL_COUNTER_PROJECT/
 
 ## 📊 Database Schema
 
-The system uses **8 main tables**:
+The system uses **7 main tables**:
 
 - `nguoi_dung` - User management (admin, pharmacists)
 - `loai_thuoc` - Medication catalog
-- `thiet_bi` - Raspberry Pi device management
 - `don_thuoc` - Prescriptions
 - `chi_tiet_don_thuoc` - Prescription details per medication
 - `bao_cao_su_co` - Incident reports
 - `thong_bao` - Notification system
 - `nhat_ky_he_thong` - System logs
 
-![Database Schema](link_anh_database_schema_here)
+![Database Schema](server_app/static/README/dtb.png)
 
 ---
 
