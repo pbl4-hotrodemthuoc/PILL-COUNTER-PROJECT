@@ -182,7 +182,7 @@ flask seed-db
 python run.py
 ```
 
-Server will run at: `http://0.0.0.0:5001`
+Server will run at: `http://127.0.0.1:5001`
 
 ### 3️⃣ Raspberry Pi Client Installation
 
