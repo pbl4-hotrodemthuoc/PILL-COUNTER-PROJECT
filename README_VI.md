@@ -309,10 +309,8 @@ PILL_COUNTER_PROJECT/
 
 ### Dữ liệu huấn luyện (Dataset)
 Mô hình YOLOv11 được huấn luyện trên bộ dữ liệu thuốc tuỳ chỉnh chất lượng cao, bao gồm:
-*   **Số lượng:** Hơn 2.000 hình ảnh gốc và 5.000 hình ảnh sau khi tăng cường (augmentation).
-*   **Đa dạng:** Dữ liệu bao gồm nhiều góc độ chụp, điều kiện ánh sáng thay đổi (sáng/tối/bóng râm), và các mức độ nhiễu khác nhau để mô phỏng môi trường thực tế tại nhà thuốc.
-*   **Gán nhãn:** Dữ liệu được gán nhãn thủ công tỉ mỉ bằng các công cụ chuyên dụng (như Roboflow/LabelImg), đảm bảo độ chính xác cao cho quá trình huấn luyện.
-*   **Phân chia:** Dataset được chia theo tỷ lệ chuẩn 70% Train, 20% Valid, 10% Test.
+### Dữ liệu huấn luyện (Dataset)
+Mô hình YOLOv11 được huấn luyện trên bộ dữ liệu thuốc chất lượng cao với hơn **7.000 hình ảnh** (bao gồm ảnh gốc và tăng cường). Dữ liệu được thu thập đa dạng điều kiện môi trường, gán nhãn thủ công và phân chia theo tỷ lệ chuẩn **70-20-10** (Train-Valid-Test).
 
 
 ---
