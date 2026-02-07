@@ -294,8 +294,6 @@ PILL_COUNTER_PROJECT/
 ### Dữ liệu huấn luyện (Dataset)
 Mô hình được huấn luyện trên bộ dữ liệu thuốc đặc thù, tăng cường độ chính xác trong nhiều điều kiện môi trường.
 
-### Liên hệ
-Mọi thắc mắc kỹ thuật vui lòng liên hệ thông qua GitHub Repository của dự án.
 
 ---
 
