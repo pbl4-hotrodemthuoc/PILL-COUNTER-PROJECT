@@ -23,7 +23,7 @@
 
 **Các thành phần cốt lõi:**
 *   **AI Engine:** Sử dụng mô hình YOLOv11 tùy chỉnh để phát hiện và đếm số lượng viên thuốc với độ chính xác cao.
-*   **Thiết bị IoT:** Raspberry Pi 4 thu nhận hình ảnh và xử lý sơ bộ.
+*   **Thiết bị IoT:** Raspberry Pi 4 thu nhận hình ảnh, hiển thị kết quả lên màn hình LCD và xử lý sơ bộ.
 *   **Xử lý thời gian thực:** Đồng bộ dữ liệu tức thời giữa thiết bị và máy chủ quản lý qua WebSocket.
 *   **Hệ thống quản trị:** Web Dashboard tập trung để giám sát hoạt động và báo cáo.
 
@@ -64,6 +64,7 @@ Hệ thống được thiết kế theo mô hình Client-Server với các modul
 graph TB
     subgraph Device["Thiết bị (Client)"]
         CAM[Camera Module]
+        LCD[Màn hình LCD]
         PI_APP["Ứng dụng Pi (PyQt5)"]
     end
     
@@ -80,6 +81,7 @@ graph TB
     end
     
     CAM -->|Video Stream| PI_APP
+    PI_APP -->|Hiển thị| LCD
     PI_APP -->|WebSocket/Images| SOCKET
     SOCKET -->|Xử lý ảnh| AI
     AI -->|Kết quả đếm| WEB
@@ -105,6 +107,7 @@ flowchart LR
     LOCK --Chưa ổn định--> YOLO
     
     SAVE -->|5. Hiển thị| UI[Giao diện Dược sĩ]
+    LOCK -.->|Kết quả| LCD([Màn hình LCD])
     
     style CAM fill:#ff9999,stroke:#333,stroke-width:2px
     style YOLO fill:#99ccff,stroke:#333,stroke-width:2px
@@ -133,6 +136,7 @@ flowchart LR
 *   **OS:** Raspberry Pi OS (64-bit)
 *   **Client App:** PyQt5
 *   **Camera:** Module v2 hoặc Webcam USB
+*   **Display:** Màn hình LCD (I2C/SPI) giao tiếp với Pi
 
 
 
