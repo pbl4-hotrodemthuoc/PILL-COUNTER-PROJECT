@@ -65,7 +65,7 @@ Hệ thống được thiết kế theo mô hình Client-Server với các modul
 graph TB
     subgraph Device["Thiết bị (Client)"]
         CAM[Camera Module]
-        PI_APP[Ứng dụng Pi (PyQt5)]
+        PI_APP["Ứng dụng Pi (PyQt5)"]
     end
     
     subgraph Server["Máy chủ (Server)"]
