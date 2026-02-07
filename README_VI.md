@@ -2,8 +2,10 @@
 
 > Hệ thống tự động hóa kiểm tra số lượng thuốc sử dụng công nghệ AI (YOLOv11) và Raspberry Pi 4, được thiết kế để nâng cao độ chính xác và hiệu quả vận hành tại các nhà thuốc.
 
-![Banner 1](server_app/static/README/banner1.jpg)
-![Banner 2](server_app/static/README/banner2.jpg)
+<p align="center">
+  <img src="server_app/static/README/banner1.jpg" width="45%" />
+  <img src="server_app/static/README/banner2.jpg" width="45%" />
+</p>
 
 ## Mục lục
 
