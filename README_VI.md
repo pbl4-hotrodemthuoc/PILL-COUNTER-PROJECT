@@ -94,8 +94,8 @@ graph TB
 1.  **Thu thập:** Camera trên Raspberry Pi ghi nhận hình ảnh khay thuốc.
 2.  **Truyền tải:** Hình ảnh được truyền về Server qua giao thức WebSocket bảo mật.
 3.  **Phân tích:** Mô hình YOLOv11 phân tích hình ảnh, phát hiện và đếm số lượng viên thuốc.
-4.  **Xác thực:** Hệ thống kiểm tra độ ổn định của kết quả đếm (Auto-lock).
-5.  **Lưu trữ:** Kết quả được lưu vào cơ sở dữ liệu MySQL và hiển thị lên màn hình dược sĩ.
+4.  **Xác thực:** Hệ thống kiểm tra độ ổn định (Auto-lock) và tự động reset khi phát hiện chuyển động (Motion Detection).
+5.  **Hiển thị & Lưu trữ:** Kết quả được hiển thị lên màn hình dược sĩ để xác nhận, sau đó lưu vào cơ sở dữ liệu MySQL.
 
 ```mermaid
 flowchart LR
