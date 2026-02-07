@@ -4,3 +4,6 @@ Flask-Login
 mysql-connector-python
 Werkzeug
 python-dotenv
+eventlet
+flask-socketio
+Flask-Migrate
