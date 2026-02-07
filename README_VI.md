@@ -202,6 +202,7 @@ python main.py
 2.  **Chuẩn bị:** Đặt thuốc lên khay đếm dưới camera.
 3.  **Xử lý:**
     *   Hệ thống tự động phát hiện viên thuốc.
+    *   Kết quả được hiển thị đồng thời trên **Màn hình LCD** (tại chỗ) và **Web Dashboard** (từ xa).
     *   Khi số lượng ổn định, hệ thống tự động khóa kết quả (Auto-lock).
     *   Dược sĩ kiểm tra lại và nhấn xác nhận.
 4.  **Hoàn tất:** Dữ liệu được lưu vào lịch sử giao dịch.
@@ -212,6 +213,7 @@ sequenceDiagram
     actor D as Dược sĩ
     participant W as Web Dashboard
     participant H as Phần cứng (Pi/Cam)
+    participant L as Màn hình LCD
     participant S as Hệ thống AI
 
     Note over D, W: 1. Khởi tạo đơn thuốc
@@ -225,15 +227,21 @@ sequenceDiagram
     loop Nhận diện liên tục
         H->>S: Gửi hình ảnh stream (WebSocket)
         S->>S: AI Phát hiện & Đếm số lượng
-        S-->>D: Hiển thị số lượng thời gian thực
+        par Hiển thị đa nền tảng
+            S-->>W: Cập nhật Web Dashboard
+            S-->>H: Trả về kết quả
+            H->>L: Hiển thị số lượng
+        end
     end
 
     Note over S: 4. Cơ chế Auto-Lock
     S->>S: Số lượng ổn định? (Stable Check)
-    S-->>D: Tự động khóa kết quả (Locked)
+    S-->>W: Tự động khóa kết quả (Locked)
+    S-->>H: Khóa kết quả
+    H->>L: Hiển thị trạng thái "Đã chốt"
 
     Note over D, W: 5. Hoàn tất
-    D->>W: Xác nhận kết quả khớp với đơn thuốc
+    D->>W: Kiểm tra & Xác nhận kết quả
     W->>W: Lưu vào Lịch sử Giao dịch
     W-->>D: Thông báo thành công
 ```
