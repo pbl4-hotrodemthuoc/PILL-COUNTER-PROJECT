@@ -13,8 +13,7 @@
 5. [Cài đặt và Triển khai](#cài-đặt-và-triển-khai)
 6. [Hướng dẫn sử dụng](#hướng-dẫn-sử-dụng)
 7. [Hình ảnh minh họa](#hình-ảnh-minh-họa)
-8. [Cấu trúc dữ liệu](#cấu-trúc-dữ-liệu)
-9. [Cấu trúc dự án](#cấu-trúc-dự-án)
+8. [Cấu trúc dự án](#cấu-trúc-dự-án)
 
 ---
 
@@ -264,14 +263,7 @@ sequenceDiagram
 
 ---
 
-## Cấu trúc dữ liệu
 
-Hệ thống được xây dựng trên nền tảng MySQL với các bảng dữ liệu chính phục vụ lưu trữ thông tin người dùng, đơn thuốc và nhật ký hoạt động.
-
-![Database Schema Diagram](server_app/static/README/dtb.png)
-*Hình 8: Lược đồ cơ sở dữ liệu quan hệ (ERD).*
-
----
 
 ## Cấu trúc dự án
 
