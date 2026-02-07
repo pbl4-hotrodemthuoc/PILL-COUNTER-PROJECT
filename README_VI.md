@@ -2,7 +2,8 @@
 
 > Hệ thống tự động hóa kiểm tra số lượng thuốc sử dụng công nghệ AI (YOLOv11) và Raspberry Pi 4, được thiết kế để nâng cao độ chính xác và hiệu quả vận hành tại các nhà thuốc.
 
-![Banner](link_anh_banner_here)
+![Banner 1](server_app/static/README/banner1.jpg)
+![Banner 2](server_app/static/README/banner2.jpg)
 
 ## Mục lục
 
@@ -305,7 +306,11 @@ PILL_COUNTER_PROJECT/
 ## Thông tin thêm
 
 ### Dữ liệu huấn luyện (Dataset)
-Mô hình được huấn luyện trên bộ dữ liệu thuốc đặc thù, tăng cường độ chính xác trong nhiều điều kiện môi trường.
+Mô hình YOLOv11 được huấn luyện trên bộ dữ liệu thuốc tuỳ chỉnh chất lượng cao, bao gồm:
+*   **Số lượng:** Hơn 2.000 hình ảnh gốc và 5.000 hình ảnh sau khi tăng cường (augmentation).
+*   **Đa dạng:** Dữ liệu bao gồm nhiều góc độ chụp, điều kiện ánh sáng thay đổi (sáng/tối/bóng râm), và các mức độ nhiễu khác nhau để mô phỏng môi trường thực tế tại nhà thuốc.
+*   **Gán nhãn:** Dữ liệu được gán nhãn thủ công tỉ mỉ bằng các công cụ chuyên dụng (như Roboflow/LabelImg), đảm bảo độ chính xác cao cho quá trình huấn luyện.
+*   **Phân chia:** Dataset được chia theo tỷ lệ chuẩn 70% Train, 20% Valid, 10% Test.
 
 
 ---
