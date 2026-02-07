@@ -95,7 +95,7 @@ graph TB
 2.  **Truyền tải:** Hình ảnh được truyền về Server qua giao thức WebSocket bảo mật.
 3.  **Phân tích:** Mô hình YOLOv11 phân tích hình ảnh, phát hiện và đếm số lượng viên thuốc.
 4.  **Xác thực:** Hệ thống kiểm tra độ ổn định (Auto-lock) và tự động reset khi phát hiện chuyển động (Motion Detection).
-5.  **Hiển thị & Lưu trữ:** Kết quả được hiển thị lên màn hình dược sĩ để xác nhận, sau đó lưu vào cơ sở dữ liệu MySQL.
+5.  **Hiển thị & Lưu trữ:** Kết quả được hiển thị lên **Giao diện Đếm thuốc** để Dược sĩ xác nhận, sau đó mới lưu vào cơ sở dữ liệu.
 
 ```mermaid
 flowchart LR
@@ -103,15 +103,16 @@ flowchart LR
     WS -->|2. Truyền tải| YOLO[YOLOv11 AI]
     YOLO -->|3. Phân tích & Đếm| LOCK{Auto-Lock}
     
-    LOCK --Ổn định--> SAVE[(Lưu CSDL)]
+    LOCK --Ổn định--> UI[Giao diện Đếm thuốc]
     LOCK --Chưa ổn định--> YOLO
     
-    SAVE -->|5. Hiển thị| UI[Giao diện Dược sĩ]
+    UI -->|Xác nhận| SAVE[(Lưu CSDL)]
     LOCK -.->|Kết quả| LCD([Màn hình LCD])
     
     style CAM fill:#ff9999,stroke:#333,stroke-width:2px
     style YOLO fill:#99ccff,stroke:#333,stroke-width:2px
     style SAVE fill:#99ff99,stroke:#333,stroke-width:2px
+    style UI fill:#e1d5e7,stroke:#9673a6,stroke-width:2px
 ```
 *Hình 1: Sơ đồ luồng dữ liệu chi tiết của hệ thống.*
 
