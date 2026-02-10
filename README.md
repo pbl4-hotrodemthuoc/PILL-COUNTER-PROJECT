@@ -30,9 +30,6 @@
 *   **Real-time Processing:** Instant data synchronization between the device and the management server via WebSocket.
 *   **Management System:** Centralized Web Dashboard for activity monitoring and reporting.
 
-### Demo Video
-![Demo Video](link_video_demo_here)
-
 ---
 
 ## Key Features
